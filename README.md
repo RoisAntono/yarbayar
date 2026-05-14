@@ -12,6 +12,14 @@ Aplikasi splitbill mobile-first untuk catat dan bagi pengeluaran bareng teman.
 - 🎨 Tailwind v4 + tema kustom (light & dark)
 - 🚀 Deploy ke Vercel, data di Supabase
 
+> 📚 **Panduan lengkap setiap library & pola yang dipakai** ada di
+> [`PATTERNS.md`](./PATTERNS.md) — kapan pakai apa, contoh, link docs,
+> cheatsheet resep umum.
+>
+> 🤖 **AI agent skills** (untuk Claude Code, Cursor, dsb) ada di
+> [`.claude/skills/`](./.claude/skills/) — sourced dari
+> [anthropics/skills](https://github.com/anthropics/skills).
+
 ## Tech Stack
 
 | Layer        | Pilihan                                                       |
