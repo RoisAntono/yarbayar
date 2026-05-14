@@ -1,26 +1,87 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@theme {
+  --color-background: oklch(0.99 0.005 250);
+  --color-foreground: oklch(0.18 0.02 260);
+  --color-muted: oklch(0.96 0.005 250);
+  --color-muted-foreground: oklch(0.55 0.02 260);
+  --color-card: #ffffff;
+  --color-card-foreground: oklch(0.18 0.02 260);
+  --color-border: oklch(0.92 0.008 260);
+  --color-input: oklch(0.96 0.005 260);
+  --color-ring: oklch(0.65 0.18 260);
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-primary: oklch(0.55 0.20 265);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: oklch(0.96 0.01 260);
+  --color-secondary-foreground: oklch(0.25 0.02 260);
+  --color-accent: oklch(0.95 0.04 175);
+  --color-accent-foreground: oklch(0.25 0.05 175);
+  --color-destructive: oklch(0.62 0.22 25);
+  --color-destructive-foreground: #ffffff;
+  --color-success: oklch(0.65 0.18 155);
+  --color-success-foreground: #ffffff;
+  --color-warning: oklch(0.78 0.16 80);
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px -12px rgba(15, 23, 42, 0.08);
+  --shadow-pop: 0 12px 32px -8px rgba(79, 70, 229, 0.25);
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  @theme {
+    --color-background: oklch(0.16 0.015 260);
+    --color-foreground: oklch(0.96 0.005 250);
+    --color-muted: oklch(0.22 0.015 260);
+    --color-muted-foreground: oklch(0.65 0.02 260);
+    --color-card: oklch(0.21 0.018 260);
+    --color-card-foreground: oklch(0.96 0.005 250);
+    --color-border: oklch(0.28 0.02 260);
+    --color-input: oklch(0.24 0.018 260);
+    --color-ring: oklch(0.7 0.18 265);
+    --color-primary: oklch(0.7 0.18 265);
+    --color-primary-foreground: oklch(0.16 0.015 260);
+    --color-secondary: oklch(0.26 0.018 260);
+    --color-secondary-foreground: oklch(0.95 0.01 260);
+    --color-accent: oklch(0.32 0.05 175);
+    --color-accent-foreground: oklch(0.92 0.04 175);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+* {
+  border-color: var(--color-border);
 }
+
+html, body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font-sans);
+  /* Mobile safe areas */
+  padding-top: env(safe-area-inset-top);
+}
+
+/* Hide scrollbars on horizontal scroll containers but keep functionality */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Soft glass effect for floating bars */
+.glass {
+  background: color-mix(in oklab, var(--color-card) 85%, transparent);
+  backdrop-filter: saturate(1.4) blur(14px);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+}
+
+/* Tap target */
+button, a { touch-action: manipulation; }
