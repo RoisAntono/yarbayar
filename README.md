@@ -14,17 +14,26 @@ Aplikasi splitbill mobile-first untuk catat dan bagi pengeluaran bareng teman.
 
 ## Tech Stack
 
-| Layer       | Pilihan                                |
-| ----------- | -------------------------------------- |
-| Framework   | Next.js 16 (App Router) + React 19     |
-| Bahasa      | TypeScript                             |
-| Styling     | Tailwind CSS v4                        |
-| Database    | Supabase Postgres + Row Level Security |
-| Auth        | Supabase Auth                          |
-| Storage     | Supabase Storage (bucket `receipts`)   |
-| OCR         | Tesseract.js (lazy-loaded di klien)    |
-| Forms       | React Server Actions + `useActionState`|
-| Hosting     | Vercel                                 |
+| Layer        | Pilihan                                                       |
+| ------------ | ------------------------------------------------------------- |
+| Framework    | Next.js 16 (App Router + Turbopack) + React 19                |
+| Bahasa       | TypeScript                                                    |
+| Styling      | Tailwind CSS v4 + tw-animate-css                              |
+| UI Primitives| Radix UI (Dialog, Dropdown, Tooltip), Vaul (mobile drawer)    |
+| Animations   | Framer Motion                                                 |
+| Theming      | next-themes (light/dark/system)                               |
+| Forms        | React Server Actions + `useActionState`, Zod, react-hook-form |
+| Database     | Supabase Postgres + Row Level Security                        |
+| Auth         | Supabase Auth                                                 |
+| Storage      | Supabase Storage (bucket `receipts`)                          |
+| OCR          | Tesseract.js (lazy-loaded di klien)                           |
+| Charts       | Recharts (untuk laporan/grafik di iterasi berikutnya)         |
+| Notifications| Sonner (toast)                                                |
+| Icons        | Lucide React                                                  |
+| Analytics    | @vercel/analytics + @vercel/speed-insights                    |
+| Linting      | ESLint (Next config) + eslint-config-prettier                 |
+| Formatting   | Prettier + prettier-plugin-tailwindcss                        |
+| Hosting      | Vercel                                                        |
 
 ## Setup lokal
 
@@ -47,12 +56,20 @@ npm install
 
 ### 3. Jalankan migrasi database
 
-Buka **SQL Editor** di dashboard Supabase, lalu salin–tempel isi `supabase/migrations/0001_init.sql` dan klik **Run**. Migrasi akan membuat:
+Buka **SQL Editor** di dashboard Supabase. Jalankan **berurutan**:
+
+1. `supabase/migrations/0001_init.sql` — skema dasar, RLS, bucket Storage
+2. `supabase/migrations/0002_whoami.sql` — diagnostic helper untuk debug RLS
+3. `supabase/migrations/0003_create_group_rpc.sql` — RPC atomik untuk buat grup
+
+Migrasi akan membuat:
 
 - Tabel `profiles`, `groups`, `group_members`, `expenses`, `expense_splits`
 - Trigger auto-create profile saat user baru daftar
 - Row Level Security pada semua tabel
 - Bucket Storage `receipts` (privat) dengan policy upload per-user
+- Function `create_group_with_members(...)` (SECURITY DEFINER, atomic)
+- Function `whoami()` untuk inspeksi sesi saat troubleshooting
 
 ### 4. Konfigurasi Auth (opsional tapi disarankan)
 
@@ -128,6 +145,18 @@ Lihat `src/lib/balances.ts`:
 
 1. `computeBalances` mengumpulkan saldo bersih per anggota: yang bayar diuntungkan, yang terlibat dalam split dirugikan.
 2. `settle` menggunakan strategi greedy — kreditur terbesar dipasangkan dengan debitur terbesar sampai semua nol. Hasilnya jumlah transfer minimum (untuk kasus normal).
+
+## Scripts
+
+| Perintah              | Aksi                                              |
+| --------------------- | ------------------------------------------------- |
+| `npm run dev`         | Jalankan dev server (Turbopack)                   |
+| `npm run build`       | Build production bundle                           |
+| `npm run start`       | Jalankan hasil build                              |
+| `npm run lint`        | ESLint                                            |
+| `npm run typecheck`   | `tsc --noEmit`                                    |
+| `npm run format`      | Prettier write semua file                         |
+| `npm run format:check`| Verifikasi formatting (cocok untuk CI)            |
 
 ## Catatan keamanan
 
