@@ -1,88 +1,215 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/*
+  Design language: "Refined fintech, warm not cold."
+  - Ivory canvas instead of pure white (less clinical, more receipt paper)
+  - Deep midnight blue ink rather than black, for softer contrast
+  - Saffron accent for highlights, settlement-positive, FAB
+  - Display font (Instrument Serif) for hero rupiah figures
+  - Heavy soft shadows for floating elements (bottom nav, sheet, FAB)
+*/
+
 @theme {
-  --color-background: oklch(0.99 0.005 250);
-  --color-foreground: oklch(0.18 0.02 260);
-  --color-muted: oklch(0.96 0.005 250);
-  --color-muted-foreground: oklch(0.55 0.02 260);
+  /* Surfaces */
+  --color-background: oklch(0.985 0.008 75);   /* warm ivory */
+  --color-foreground: oklch(0.18 0.04 265);    /* midnight ink */
   --color-card: #ffffff;
-  --color-card-foreground: oklch(0.18 0.02 260);
-  --color-border: oklch(0.92 0.008 260);
-  --color-input: oklch(0.96 0.005 260);
-  --color-ring: oklch(0.65 0.18 260);
+  --color-card-foreground: oklch(0.18 0.04 265);
+  --color-muted: oklch(0.965 0.012 75);
+  --color-muted-foreground: oklch(0.5 0.03 265);
+  --color-border: oklch(0.92 0.012 75);
+  --color-input: oklch(0.97 0.01 75);
+  --color-ring: oklch(0.55 0.18 265);
 
-  --color-primary: oklch(0.55 0.20 265);
-  --color-primary-foreground: #ffffff;
-  --color-secondary: oklch(0.96 0.01 260);
-  --color-secondary-foreground: oklch(0.25 0.02 260);
-  --color-accent: oklch(0.95 0.04 175);
-  --color-accent-foreground: oklch(0.25 0.05 175);
-  --color-destructive: oklch(0.62 0.22 25);
+  /* Brand — used for high-emphasis buttons. Inverted between light/dark. */
+  --color-primary: oklch(0.22 0.06 265);                /* deep midnight */
+  --color-primary-foreground: oklch(0.985 0.008 75);
+  --color-secondary: oklch(0.95 0.012 75);
+  --color-secondary-foreground: oklch(0.22 0.06 265);
+
+  /* Accent — saffron, always paired with dark text for AA contrast */
+  --color-accent: oklch(0.82 0.16 75);
+  --color-accent-foreground: oklch(0.18 0.04 265);
+
+  /*
+    Ink — invariant dark surface used for hero / aurora cards.
+    Stays the SAME across light & dark mode so a hero card never
+    becomes light-on-light. Text on top is always --color-on-ink.
+  */
+  --color-ink: oklch(0.18 0.04 265);
+  --color-on-ink: oklch(0.985 0.008 75);
+
+
+  /* Semantic */
+  --color-destructive: oklch(0.55 0.21 25);
   --color-destructive-foreground: #ffffff;
-  --color-success: oklch(0.65 0.18 155);
+  --color-success: oklch(0.62 0.16 155);
   --color-success-foreground: #ffffff;
-  --color-warning: oklch(0.78 0.16 80);
+  --color-warning: oklch(0.78 0.16 75);
 
-  --radius-sm: 0.5rem;
-  --radius-md: 0.75rem;
-  --radius-lg: 1rem;
-  --radius-xl: 1.25rem;
+  /* Radii — bigger than typical */
+  --radius-sm: 0.625rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1.125rem;
+  --radius-xl: 1.5rem;
+  --radius-2xl: 2rem;
 
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  /* Type scale */
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display), Georgia, "Times New Roman", serif;
+  --font-mono: var(--font-mono), ui-monospace, monospace;
 
-  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px -12px rgba(15, 23, 42, 0.08);
-  --shadow-pop: 0 12px 32px -8px rgba(79, 70, 229, 0.25);
+  /* Shadows — softer & deeper, layered for floating UI */
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 4px 12px -2px rgb(15 23 42 / 0.06);
+  --shadow-float: 0 1px 2px rgb(15 23 42 / 0.04), 0 12px 32px -8px rgb(15 23 42 / 0.18),
+    0 24px 48px -16px rgb(15 23 42 / 0.12);
+  --shadow-pop: 0 8px 20px -6px rgb(34 35 75 / 0.35), 0 2px 6px rgb(34 35 75 / 0.18);
+  --shadow-pop-accent: 0 8px 20px -6px rgb(212 153 36 / 0.45), 0 2px 6px rgb(180 130 30 / 0.25);
 }
 
 @media (prefers-color-scheme: dark) {
   @theme {
-    --color-background: oklch(0.16 0.015 260);
-    --color-foreground: oklch(0.96 0.005 250);
-    --color-muted: oklch(0.22 0.015 260);
-    --color-muted-foreground: oklch(0.65 0.02 260);
-    --color-card: oklch(0.21 0.018 260);
-    --color-card-foreground: oklch(0.96 0.005 250);
-    --color-border: oklch(0.28 0.02 260);
-    --color-input: oklch(0.24 0.018 260);
+    /*
+      In dark mode we ONLY flip surface tokens (background/card/muted/etc).
+      Brand tokens (--color-primary, --color-accent, --color-ink) keep
+      the same hue so a "primary" button is dark in both modes (text on
+      it is always light), and the saffron accent stays saffron. This is
+      the simplest correctness rule: a (color, foreground) pair must
+      always remain a valid contrast pair.
+    */
+    --color-background: oklch(0.14 0.02 265);
+    --color-foreground: oklch(0.96 0.012 75);
+    --color-muted: oklch(0.22 0.025 265);
+    --color-muted-foreground: oklch(0.7 0.025 265);
+    --color-card: oklch(0.2 0.025 265);
+    --color-card-foreground: oklch(0.96 0.012 75);
+    --color-border: oklch(0.28 0.025 265);
+    --color-input: oklch(0.24 0.025 265);
     --color-ring: oklch(0.7 0.18 265);
-    --color-primary: oklch(0.7 0.18 265);
-    --color-primary-foreground: oklch(0.16 0.015 260);
-    --color-secondary: oklch(0.26 0.018 260);
-    --color-secondary-foreground: oklch(0.95 0.01 260);
-    --color-accent: oklch(0.32 0.05 175);
-    --color-accent-foreground: oklch(0.92 0.04 175);
+
+    /* Secondary remains an in-mode "subtle surface" pair */
+    --color-secondary: oklch(0.26 0.025 265);
+    --color-secondary-foreground: oklch(0.96 0.012 75);
+
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 6px 16px -4px rgb(0 0 0 / 0.3);
+    --shadow-float: 0 1px 2px rgb(0 0 0 / 0.4), 0 16px 40px -8px rgb(0 0 0 / 0.55),
+      0 32px 64px -16px rgb(0 0 0 / 0.4);
+    --shadow-pop: 0 8px 24px -6px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.3);
   }
 }
+
+/* === Base ============================================================== */
 
 * {
   border-color: var(--color-border);
 }
 
-html, body {
+html,
+body {
   background: var(--color-background);
   color: var(--color-foreground);
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: contain;
 }
 
 body {
   font-family: var(--font-sans);
-  /* Mobile safe areas */
   padding-top: env(safe-area-inset-top);
+  font-feature-settings: "ss01", "cv11";
 }
 
-/* Hide scrollbars on horizontal scroll containers but keep functionality */
+/* === Typography helpers ================================================ */
+
+.font-display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+.font-display-italic {
+  font-family: var(--font-display);
+  font-style: italic;
+  letter-spacing: -0.02em;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* === Utility classes =================================================== */
+
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* Soft glass effect for floating bars */
+/* Frosted glass for floating bars */
 .glass {
-  background: color-mix(in oklab, var(--color-card) 85%, transparent);
-  backdrop-filter: saturate(1.4) blur(14px);
-  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+  background: color-mix(in oklab, var(--color-card) 75%, transparent);
+  backdrop-filter: saturate(1.6) blur(20px);
+  -webkit-backdrop-filter: saturate(1.6) blur(20px);
+  border: 1px solid color-mix(in oklab, var(--color-foreground) 6%, transparent);
 }
 
-/* Tap target */
-button, a { touch-action: manipulation; }
+.glass-strong {
+  background: color-mix(in oklab, var(--color-card) 88%, transparent);
+  backdrop-filter: saturate(1.8) blur(28px);
+  -webkit-backdrop-filter: saturate(1.8) blur(28px);
+}
+
+/* Subtle grain overlay — adds receipt-paper character without being noisy */
+.grain {
+  position: relative;
+  isolation: isolate;
+}
+.grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.03;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
+  z-index: 1;
+}
+
+/*
+  Soft radial wash used behind hero cards.
+  Anchored to --color-ink (always dark) so the surface never inverts
+  in dark mode — text stays readable.
+*/
+.aurora {
+  background:
+    radial-gradient(120% 80% at 0% 0%, color-mix(in oklab, var(--color-accent) 28%, transparent), transparent 60%),
+    radial-gradient(80% 60% at 100% 100%, color-mix(in oklab, oklch(0.4 0.12 265) 60%, transparent), transparent 55%),
+    var(--color-ink);
+  color: var(--color-on-ink);
+}
+
+/* Active press effect for buttons / nav items */
+button,
+a,
+[role="button"] {
+  touch-action: manipulation;
+}
+
+@keyframes float-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.float-in {
+  animation: float-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Subtle scale for nav active dot */
+@keyframes nav-pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+.nav-pop {
+  animation: nav-pop 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}

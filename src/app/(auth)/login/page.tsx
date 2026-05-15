@@ -6,23 +6,27 @@ export const metadata = { title: "Masuk" };
 export default function LoginPage() {
   return (
     <>
-      <div className="flex-1 flex flex-col justify-center">
-        <div className="mb-8">
-          <div className="size-14 rounded-2xl bg-[var(--color-primary)] text-[var(--color-primary-foreground)] grid place-items-center text-2xl shadow-[var(--shadow-pop)] mb-5">
+      <div className="flex flex-1 flex-col justify-center">
+        <div className="mb-8 float-in">
+          <div className="mb-5 grid size-14 place-items-center rounded-2xl bg-[var(--color-ink)] text-[var(--color-on-ink)] text-2xl shadow-[var(--shadow-pop)]">
             💸
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">Selamat datang kembali</h1>
-          <p className="text-[var(--color-muted-foreground)] mt-1">
+          <h1 className="text-4xl tracking-tight">
+            <span className="font-display-italic">Selamat datang</span>
+            <br />
+            <span className="font-medium">kembali.</span>
+          </h1>
+          <p className="mt-2 text-[var(--color-muted-foreground)]">
             Masuk ke Yarbayar untuk lanjut catat pengeluaran bareng teman.
           </p>
         </div>
         <LoginForm />
       </div>
-      <p className="text-center text-sm text-[var(--color-muted-foreground)] py-6">
+      <p className="py-6 text-center text-sm text-[var(--color-muted-foreground)]">
         Belum punya akun?{" "}
         <Link
           href="/register"
-          className="font-semibold text-[var(--color-primary)]"
+          className="font-semibold text-[var(--color-foreground)] underline-offset-4 hover:underline"
         >
           Daftar
         </Link>

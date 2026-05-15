@@ -2,48 +2,157 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Users, Receipt, User } from "lucide-react";
+import { Home, Receipt, Plus, User, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const ITEMS = [
-  { href: "/", label: "Beranda", icon: Home, match: (p: string) => p === "/" },
-  { href: "/groups", label: "Grup", icon: Users, match: (p: string) => p.startsWith("/groups") },
-  { href: "/history", label: "Riwayat", icon: Receipt, match: (p: string) => p.startsWith("/history") },
-  { href: "/profile", label: "Saya", icon: User, match: (p: string) => p.startsWith("/profile") },
+/**
+ * Floating pill bottom navigation.
+ *
+ * Anatomy:
+ *   - Container: detached pill with glass + heavy shadow, sitting above
+ *     the safe-area inset (NOT spanning edge-to-edge).
+ *   - 4 nav items + 1 center FAB:
+ *       Beranda · Grup · [+ Tambah] · Riwayat · Saya
+ *   - The FAB is *raised* above the pill (negative top margin) and uses
+ *     the saffron accent so it pops against the dark midnight pill.
+ *   - Active item shows a small dot below it (animated in via .nav-pop).
+ */
+
+type NavItem = {
+  href: string;
+  label: string;
+  icon: typeof Home;
+  match: (p: string) => boolean;
+};
+
+const ITEMS: NavItem[] = [
+  {
+    href: "/",
+    label: "Beranda",
+    icon: Home,
+    match: (p) => p === "/",
+  },
+  {
+    href: "/groups",
+    label: "Grup",
+    icon: Users,
+    match: (p) => p.startsWith("/groups"),
+  },
+  {
+    href: "/history",
+    label: "Riwayat",
+    icon: Receipt,
+    match: (p) => p.startsWith("/history"),
+  },
+  {
+    href: "/profile",
+    label: "Saya",
+    icon: User,
+    match: (p) => p.startsWith("/profile"),
+  },
 ];
 
 export function BottomNav() {
   const pathname = usePathname();
+
+  // Decide where the "+ Tambah" button takes the user. If we're in a
+  // group, pre-fill that group; otherwise it routes to the group list
+  // and the user picks a group first.
+  const groupMatch = pathname.match(/^\/groups\/([^/]+)/);
+  const addHref =
+    groupMatch && groupMatch[1] !== "new"
+      ? `/groups/${groupMatch[1]}/expenses/new`
+      : "/groups";
+
+  // Split items into left and right halves around the center FAB
+  const left = ITEMS.slice(0, 2);
+  const right = ITEMS.slice(2);
+
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-30 glass border-t border-[var(--color-border)] pb-[env(safe-area-inset-bottom)]"
       aria-label="Navigasi utama"
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center px-4 pb-[max(env(safe-area-inset-bottom),0.75rem)]"
     >
-      <ul className="grid grid-cols-4 max-w-md mx-auto">
-        {ITEMS.map((it) => {
-          const active = it.match(pathname);
-          const Icon = it.icon;
-          return (
-            <li key={it.href}>
-              <Link
-                href={it.href}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "flex flex-col items-center gap-1 py-2.5 text-xs transition-colors",
-                  active
-                    ? "text-[var(--color-primary)]"
-                    : "text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"
-                )}
-              >
-                <Icon className={cn("size-5", active && "stroke-[2.5]")} />
-                <span className={cn("font-medium", active && "font-semibold")}>
-                  {it.label}
-                </span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+      <div className="pointer-events-auto relative w-full max-w-md">
+        {/* Floating pill */}
+        <div
+          className={cn(
+            "glass-strong relative flex items-center justify-between gap-1 rounded-full px-2 py-1.5",
+            "shadow-[var(--shadow-float)]"
+          )}
+        >
+          {left.map((it) => (
+            <NavButton key={it.href} item={it} active={it.match(pathname)} />
+          ))}
+
+          {/* Spacer for the FAB sitting above */}
+          <div aria-hidden className="w-16 shrink-0" />
+
+          {right.map((it) => (
+            <NavButton key={it.href} item={it} active={it.match(pathname)} />
+          ))}
+        </div>
+
+        {/* Raised center FAB */}
+        <Link
+          href={addHref}
+          aria-label="Tambah pengeluaran"
+          className={cn(
+            "absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/3",
+            "grid size-16 place-items-center rounded-full",
+            "bg-[var(--color-accent)] text-[var(--color-accent-foreground)]",
+            "shadow-[var(--shadow-pop-accent)] ring-4 ring-[var(--color-background)]",
+            "transition-all duration-200 ease-out",
+            "hover:scale-105 active:scale-95"
+          )}
+        >
+          <Plus className="size-7 stroke-[2.5]" />
+          <span className="sr-only">Tambah pengeluaran</span>
+        </Link>
+      </div>
     </nav>
+  );
+}
+
+function NavButton({ item, active }: { item: NavItem; active: boolean }) {
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "group relative flex flex-1 flex-col items-center gap-0.5 rounded-full px-3 py-2",
+        "transition-colors duration-200",
+        "active:scale-[0.96]"
+      )}
+    >
+      <Icon
+        className={cn(
+          "size-[22px] transition-all duration-300",
+          active
+            ? "scale-110 text-[var(--color-foreground)]"
+            : "text-[var(--color-muted-foreground)] group-hover:text-[var(--color-foreground)]"
+        )}
+        strokeWidth={active ? 2.4 : 1.8}
+      />
+      <span
+        className={cn(
+          "text-[10px] font-medium transition-colors",
+          active
+            ? "text-[var(--color-foreground)]"
+            : "text-[var(--color-muted-foreground)]"
+        )}
+      >
+        {item.label}
+      </span>
+
+      {/* Active dot indicator */}
+      {active && (
+        <span
+          aria-hidden
+          className="nav-pop absolute -bottom-0.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-[var(--color-accent)]"
+        />
+      )}
+    </Link>
   );
 }

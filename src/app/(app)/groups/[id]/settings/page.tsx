@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { Trash2, UserPlus } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -34,21 +35,24 @@ export default async function GroupSettingsPage({
     <>
       <PageHeader title="Pengaturan grup" subtitle={group.name} back />
 
-      <div className="px-4 py-4 space-y-5">
+      <div className="space-y-6 px-4 py-4">
         <section>
-          <h3 className="text-sm font-semibold text-[var(--color-muted-foreground)] mb-2">
-            Anggota
+          <h3 className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-muted-foreground)]">
+            Anggota · {group.members.length}
           </h3>
           <Card className="divide-y divide-[var(--color-border)]">
             {group.members.map((m) => (
-              <div key={m.id} className="flex items-center gap-3 p-3">
+              <div key={m.id} className="flex items-center gap-3 p-3.5">
                 <Avatar name={m.display_name} size="sm" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{m.display_name}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">{m.display_name}</p>
                   <p className="text-xs text-[var(--color-muted-foreground)]">
                     {m.profile_id ? "Akun terdaftar" : "Tamu"}
                   </p>
                 </div>
+                {m.profile_id === group.owner_id && (
+                  <Badge variant="secondary">Pemilik</Badge>
+                )}
                 {isOwner && m.profile_id !== group.owner_id && (
                   <form action={removeMemberAction}>
                     <input type="hidden" name="member_id" value={m.id} />
@@ -58,8 +62,9 @@ export default async function GroupSettingsPage({
                       size="icon"
                       variant="ghost"
                       aria-label="Hapus anggota"
+                      className="text-[var(--color-destructive)]"
                     >
-                      <Trash2 className="size-4 text-[var(--color-destructive)]" />
+                      <Trash2 className="size-4" />
                     </Button>
                   </form>
                 )}
@@ -70,7 +75,7 @@ export default async function GroupSettingsPage({
 
         {isOwner && (
           <section>
-            <h3 className="text-sm font-semibold text-[var(--color-muted-foreground)] mb-2">
+            <h3 className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-muted-foreground)]">
               Tambah anggota
             </h3>
             <Card className="p-4">
@@ -85,7 +90,7 @@ export default async function GroupSettingsPage({
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full">
+                <Button type="submit" variant="accent" className="w-full">
                   <UserPlus className="size-4" /> Tambah
                 </Button>
               </form>
@@ -95,7 +100,7 @@ export default async function GroupSettingsPage({
 
         {isOwner && (
           <section>
-            <h3 className="text-sm font-semibold text-[var(--color-destructive)] mb-2">
+            <h3 className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-destructive)]">
               Zona berbahaya
             </h3>
             <form action={deleteGroupAction}>
@@ -104,13 +109,13 @@ export default async function GroupSettingsPage({
                 type="submit"
                 variant="outline"
                 size="lg"
-                className="w-full text-[var(--color-destructive)]"
+                className="w-full gap-2 text-[var(--color-destructive)] hover:bg-[color-mix(in_oklab,var(--color-destructive),transparent_92%)]"
               >
                 <Trash2 className="size-4" />
                 Hapus grup ini
               </Button>
             </form>
-            <p className="text-xs text-[var(--color-muted-foreground)] text-center mt-2">
+            <p className="mt-2 text-center text-xs text-[var(--color-muted-foreground)]">
               Semua pengeluaran dan riwayat di grup ini akan ikut terhapus.
             </p>
           </section>

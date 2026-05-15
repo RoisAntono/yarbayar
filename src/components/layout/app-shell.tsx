@@ -2,8 +2,9 @@ import { BottomNav } from "./bottom-nav";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-dvh flex flex-col bg-[var(--color-background)]">
-      <main className="flex-1 max-w-md w-full mx-auto pb-24">{children}</main>
+    <div className="grain min-h-dvh bg-[var(--color-background)]">
+      {/* Bottom space accounts for the floating nav (~64px pill + ~24px FAB overhang) */}
+      <main className="mx-auto w-full max-w-md pb-32">{children}</main>
       <BottomNav />
     </div>
   );

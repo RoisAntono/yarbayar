@@ -7,7 +7,8 @@ import {
   ArrowRight,
   Plus,
   Receipt,
-  UserPlus,
+  Settings2,
+  Sparkles,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -15,9 +16,10 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
+import { AnimatedNumber } from "@/components/animated-number";
 import { computeBalances, settle } from "@/lib/balances";
 import { getCurrentUser, getGroupDetail } from "@/lib/data";
-import { cn, formatRupiah } from "@/lib/utils";
+import { formatRupiah } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -43,32 +45,73 @@ export default async function GroupDetailPage({
   );
   const settlements = settle(balances);
 
+  // My net for this group (positive = owed to me)
+  const myNet = myMember ? balances.get(myMember.id) ?? 0 : 0;
+
   return (
     <>
       <PageHeader
         title={`${group.emoji ?? "👥"} ${group.name}`}
-        subtitle={`${group.members.length} anggota · Total ${formatRupiah(total)}`}
+        subtitle={`${group.members.length} anggota`}
         back
         right={
           <Link href={`/groups/${group.id}/settings`} aria-label="Pengaturan">
             <Button size="icon" variant="ghost">
-              <UserPlus className="size-5" />
+              <Settings2 className="size-5" />
             </Button>
           </Link>
         }
       />
 
-      <div className="px-4 py-4 space-y-5">
-        {/* Members */}
+      <div className="space-y-5 px-4 py-4">
+        {/* Hero — group total + my net */}
+        <Card className="aurora grain relative overflow-hidden border-0 p-6 text-[var(--color-on-ink)] float-in">
+          <div className="relative z-[2]">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.18em] opacity-70">
+              <Sparkles className="size-3.5" />
+              Total pengeluaran
+            </div>
+            <p className="mt-2 font-display tabular text-5xl leading-none">
+              <AnimatedNumber value={total} />
+            </p>
+            {myMember && (
+              <p className="mt-3 text-sm opacity-80">
+                {myNet === 0
+                  ? "Kamu lunas dengan grup ini ✨"
+                  : myNet > 0 ? (
+                    <>
+                      Kamu akan{" "}
+                      <span className="font-semibold text-[var(--color-accent)]">
+                        terima {formatRupiah(myNet)}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      Kamu masih{" "}
+                      <span className="font-semibold">
+                        bayar {formatRupiah(-myNet)}
+                      </span>
+                    </>
+                  )}
+              </p>
+            )}
+          </div>
+        </Card>
+
+        {/* Members strip */}
         <section>
-          <h3 className="text-sm font-semibold text-[var(--color-muted-foreground)] mb-2">
-            Anggota
+          <h3 className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-muted-foreground)]">
+            Anggota · {group.members.length}
           </h3>
-          <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-4 px-4">
+          <div className="-mx-4 flex gap-3 overflow-x-auto px-4 no-scrollbar">
             {group.members.map((m) => (
-              <div key={m.id} className="flex flex-col items-center gap-1.5 shrink-0 w-16">
-                <Avatar name={m.display_name} size="lg" />
-                <p className="text-xs text-center truncate w-full font-medium">
+              <div key={m.id} className="flex w-16 shrink-0 flex-col items-center gap-1.5">
+                <Avatar
+                  name={m.display_name}
+                  size="lg"
+                  className="ring-2 ring-[var(--color-card)] shadow-[var(--shadow-card)]"
+                />
+                <p className="w-full truncate text-center text-[11px] font-medium">
                   {m.id === myMember?.id ? "Kamu" : m.display_name}
                 </p>
               </div>
@@ -78,8 +121,8 @@ export default async function GroupDetailPage({
 
         {/* Settlements */}
         {settlements.length > 0 && (
-          <section>
-            <h3 className="text-sm font-semibold text-[var(--color-muted-foreground)] mb-2">
+          <section className="float-in" style={{ animationDelay: "60ms" }}>
+            <h3 className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-muted-foreground)]">
               Saran pembayaran
             </h3>
             <Card className="divide-y divide-[var(--color-border)]">
@@ -93,15 +136,15 @@ export default async function GroupDetailPage({
                     <ArrowRight className="size-4 text-[var(--color-muted-foreground)]" />
                     <Avatar name={to.display_name} size="sm" />
                     <p className="flex-1 text-sm leading-tight">
-                      <span className="font-medium">
+                      <span className="font-semibold">
                         {from.id === myMember?.id ? "Kamu" : from.display_name}
                       </span>{" "}
-                      bayar ke{" "}
-                      <span className="font-medium">
+                      <span className="text-[var(--color-muted-foreground)]">→</span>{" "}
+                      <span className="font-semibold">
                         {to.id === myMember?.id ? "kamu" : to.display_name}
                       </span>
                     </p>
-                    <span className="font-semibold text-sm">
+                    <span className="tabular text-sm font-semibold">
                       {formatRupiah(s.amount)}
                     </span>
                   </div>
@@ -111,10 +154,17 @@ export default async function GroupDetailPage({
           </section>
         )}
 
+        {settlements.length === 0 && total > 0 && (
+          <p className="flex items-center justify-center gap-1.5 rounded-2xl bg-[color-mix(in_oklab,var(--color-success),transparent_88%)] px-4 py-3 text-xs text-[var(--color-success)]">
+            <ArrowLeftRight className="size-3.5" />
+            Semua sudah lunas
+          </p>
+        )}
+
         {/* Expenses */}
         <section>
-          <header className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold text-[var(--color-muted-foreground)]">
+          <header className="mb-2 flex items-center justify-between px-1">
+            <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-muted-foreground)]">
               Pengeluaran
             </h3>
             <span className="text-xs text-[var(--color-muted-foreground)]">
@@ -127,10 +177,10 @@ export default async function GroupDetailPage({
               <EmptyState
                 icon={<Receipt className="size-7" />}
                 title="Belum ada pengeluaran"
-                description="Catat pengeluaran pertama kalian, atau scan nota langsung dari kamera."
+                description="Catat pengeluaran pertama, atau scan nota langsung dari kamera."
                 action={
                   <Link href={`/groups/${group.id}/expenses/new`}>
-                    <Button size="sm" className="mt-2">
+                    <Button variant="accent" size="sm" className="mt-2">
                       <Plus className="size-4" /> Tambah pengeluaran
                     </Button>
                   </Link>
@@ -139,36 +189,47 @@ export default async function GroupDetailPage({
             </Card>
           ) : (
             <ul className="space-y-2">
-              {group.expenses.map((e) => {
+              {group.expenses.map((e, i) => {
                 const payer = memberMap.get(e.paid_by_member_id);
-                const myShare = e.splits.find((s) => s.member_id === myMember?.id)?.amount ?? 0;
+                const myShare =
+                  e.splits.find((s) => s.member_id === myMember?.id)?.amount ?? 0;
                 const involved = e.splits.length;
                 return (
-                  <li key={e.id}>
+                  <li
+                    key={e.id}
+                    className="float-in"
+                    style={{ animationDelay: `${i * 40}ms` }}
+                  >
                     <Link href={`/groups/${group.id}/expenses/${e.id}`}>
-                      <Card className="p-3.5 flex items-center gap-3 hover:bg-[var(--color-muted)] transition-colors">
+                      <Card className="flex items-center gap-3 p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-float)]">
                         <Avatar name={payer?.display_name} />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate leading-tight">{e.title}</p>
-                          <p className="text-xs text-[var(--color-muted-foreground)] mt-0.5">
-                            {payer?.id === myMember?.id ? "Kamu" : payer?.display_name} bayar ·{" "}
-                            {format(new Date(e.spent_at), "d MMM", { locale: idLocale })} · {involved} orang
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-semibold leading-tight tracking-tight">
+                            {e.title}
+                          </p>
+                          <p className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
+                            {payer?.id === myMember?.id ? "Kamu" : payer?.display_name}{" "}
+                            bayar ·{" "}
+                            {format(new Date(e.spent_at), "d MMM", {
+                              locale: idLocale,
+                            })}{" "}
+                            · {involved} orang
                           </p>
                         </div>
-                        <div className="text-right shrink-0">
-                          <p className="font-semibold text-sm">{formatRupiah(e.amount)}</p>
+                        <div className="shrink-0 text-right">
+                          <p className="tabular text-sm font-semibold">
+                            {formatRupiah(e.amount)}
+                          </p>
                           {myMember && myShare > 0 && (
                             <Badge
                               variant={
-                                payer?.id === myMember.id
-                                  ? "success"
-                                  : "secondary"
+                                payer?.id === myMember.id ? "success" : "secondary"
                               }
-                              className="mt-1"
+                              className="mt-1 tabular"
                             >
                               {payer?.id === myMember.id
                                 ? `+${formatRupiah(e.amount - myShare)}`
-                                : `-${formatRupiah(myShare)}`}
+                                : `−${formatRupiah(myShare)}`}
                             </Badge>
                           )}
                         </div>
@@ -181,27 +242,6 @@ export default async function GroupDetailPage({
           )}
         </section>
       </div>
-
-      {/* FAB */}
-      <Link
-        href={`/groups/${group.id}/expenses/new`}
-        className={cn(
-          "fixed bottom-24 right-4 z-20 size-14 rounded-full grid place-items-center",
-          "bg-[var(--color-primary)] text-[var(--color-primary-foreground)] shadow-[var(--shadow-pop)]",
-          "active:scale-95 transition-transform"
-        )}
-        aria-label="Tambah pengeluaran"
-      >
-        <Plus className="size-6" />
-      </Link>
-
-      {/* Spacer to prevent content under FAB+nav */}
-      <div className="h-4" />
-      {settlements.length === 0 && total > 0 && (
-        <p className="text-center text-xs text-[var(--color-muted-foreground)] flex items-center justify-center gap-1">
-          <ArrowLeftRight className="size-3.5" /> Semua sudah lunas
-        </p>
-      )}
     </>
   );
 }

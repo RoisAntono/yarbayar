@@ -25,12 +25,27 @@ export default async function HistoryPage() {
     groups.set(key, arr);
   }
 
+  const monthTotal = expenses
+    .filter((e) => {
+      const d = new Date(e.spent_at);
+      const now = new Date();
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    })
+    .reduce((s, e) => s + Number(e.amount), 0);
+
   return (
     <>
-      <PageHeader title="Riwayat transaksi" />
-      <div className="px-4 py-4 space-y-5">
+      <PageHeader
+        title="Riwayat"
+        subtitle={
+          expenses.length
+            ? `Bulan ini · ${formatRupiah(monthTotal)}`
+            : "Pengeluaran kamu di semua grup"
+        }
+      />
+      <div className="space-y-6 px-4 py-4">
         {expenses.length === 0 ? (
-          <Card>
+          <Card className="float-in">
             <EmptyState
               icon={<Receipt className="size-7" />}
               title="Belum ada transaksi"
@@ -38,15 +53,19 @@ export default async function HistoryPage() {
             />
           </Card>
         ) : (
-          Array.from(groups.entries()).map(([day, items]) => {
+          Array.from(groups.entries()).map(([day, items], gi) => {
             const dayTotal = items.reduce((s, e) => s + Number(e.amount), 0);
             return (
-              <section key={day}>
-                <header className="flex items-center justify-between mb-2 px-1">
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--color-muted-foreground)]">
+              <section
+                key={day}
+                className="float-in"
+                style={{ animationDelay: `${gi * 60}ms` }}
+              >
+                <header className="mb-2 flex items-center justify-between px-1">
+                  <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-muted-foreground)]">
                     {day}
                   </h3>
-                  <span className="text-xs text-[var(--color-muted-foreground)]">
+                  <span className="tabular text-xs font-medium text-[var(--color-muted-foreground)]">
                     {formatRupiah(dayTotal)}
                   </span>
                 </header>
@@ -54,22 +73,22 @@ export default async function HistoryPage() {
                   {items.map((e) => (
                     <li key={e.id}>
                       <Link href={`/groups/${e.group_id}/expenses/${e.id}`}>
-                        <Card className="p-3.5 flex items-center gap-3 hover:bg-[var(--color-muted)] transition-colors">
-                          <span className="size-10 grid place-items-center rounded-xl bg-[var(--color-muted)] text-lg">
+                        <Card className="flex items-center gap-3 p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-float)]">
+                          <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[var(--color-muted)] text-xl">
                             {e.group_emoji ?? "👥"}
                           </span>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate leading-tight">
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-semibold leading-tight tracking-tight">
                               {e.title}
                             </p>
-                            <p className="text-xs text-[var(--color-muted-foreground)] mt-0.5 truncate">
+                            <p className="mt-0.5 truncate text-xs text-[var(--color-muted-foreground)]">
                               {e.group_name} ·{" "}
                               {format(new Date(e.spent_at), "HH:mm", {
                                 locale: idLocale,
                               })}
                             </p>
                           </div>
-                          <p className="font-semibold text-sm shrink-0">
+                          <p className="tabular shrink-0 font-semibold text-sm">
                             {formatRupiah(e.amount)}
                           </p>
                         </Card>

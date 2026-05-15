@@ -6,8 +6,9 @@ import { createGroupAction, type GroupFormState } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
-const EMOJIS = ["👥", "🏖️", "✈️", "🍽️", "🏠", "🎉", "☕️", "🎬", "💼", "⚽️"];
+const EMOJIS = ["👥", "🏖️", "✈️", "🍽️", "🏠", "🎉", "☕️", "🎬", "💼", "⚽️", "🎮", "🛒"];
 
 export function CreateGroupForm() {
   const [state, formAction, pending] = useActionState<GroupFormState, FormData>(
@@ -18,27 +19,33 @@ export function CreateGroupForm() {
   const [members, setMembers] = useState<string[]>([""]);
 
   return (
-    <form action={formAction} className="space-y-5">
+    <form action={formAction} className="space-y-6">
       <input type="hidden" name="emoji" value={emoji} />
 
       {/* Emoji picker */}
       <div className="space-y-2">
         <Label>Ikon grup</Label>
-        <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1">
-          {EMOJIS.map((e) => (
-            <button
-              key={e}
-              type="button"
-              onClick={() => setEmoji(e)}
-              className={`size-12 shrink-0 rounded-xl text-2xl transition-all ${
-                emoji === e
-                  ? "bg-[var(--color-primary)] scale-105 shadow-[var(--shadow-pop)]"
-                  : "bg-[var(--color-muted)] hover:bg-[var(--color-secondary)]"
-              }`}
-            >
-              {e}
-            </button>
-          ))}
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 no-scrollbar">
+          {EMOJIS.map((e) => {
+            const active = emoji === e;
+            return (
+              <button
+                key={e}
+                type="button"
+                onClick={() => setEmoji(e)}
+                className={cn(
+                  "grid size-13 shrink-0 place-items-center rounded-2xl text-2xl transition-all duration-200",
+                  active
+                    ? "scale-105 bg-[var(--color-accent)] shadow-[var(--shadow-pop-accent)] ring-2 ring-[var(--color-accent)] ring-offset-2 ring-offset-[var(--color-background)]"
+                    : "bg-[var(--color-muted)] hover:bg-[var(--color-secondary)] active:scale-95"
+                )}
+                style={{ width: "3.25rem", height: "3.25rem" }}
+                aria-pressed={active}
+              >
+                {e}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -59,14 +66,10 @@ export function CreateGroupForm() {
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="owner_name">Nama tampilan kamu di grup ini</Label>
-        <Input
-          id="owner_name"
-          name="owner_name"
-          placeholder="Saya"
-        />
+        <Label htmlFor="owner_name">Nama tampilan kamu</Label>
+        <Input id="owner_name" name="owner_name" placeholder="Saya" />
         <p className="text-xs text-[var(--color-muted-foreground)]">
-          Akan muncul di daftar anggota.
+          Akan muncul di daftar anggota grup.
         </p>
       </div>
 
@@ -76,7 +79,7 @@ export function CreateGroupForm() {
           <button
             type="button"
             onClick={() => setMembers((m) => [...m, ""])}
-            className="text-xs font-medium text-[var(--color-primary)] flex items-center gap-1"
+            className="inline-flex items-center gap-1 rounded-full bg-[var(--color-muted)] px-3 py-1 text-xs font-medium text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-secondary)] active:scale-95"
           >
             <Plus className="size-3.5" /> Tambah
           </button>
@@ -88,7 +91,9 @@ export function CreateGroupForm() {
                 name="member_name"
                 value={m}
                 onChange={(e) =>
-                  setMembers((arr) => arr.map((x, j) => (j === i ? e.target.value : x)))
+                  setMembers((arr) =>
+                    arr.map((x, j) => (j === i ? e.target.value : x))
+                  )
                 }
                 placeholder={`Nama anggota #${i + 1}`}
               />
@@ -101,6 +106,7 @@ export function CreateGroupForm() {
                     setMembers((arr) => arr.filter((_, j) => j !== i))
                   }
                   aria-label="Hapus"
+                  className="text-[var(--color-destructive)]"
                 >
                   <Trash2 className="size-4" />
                 </Button>
@@ -114,7 +120,7 @@ export function CreateGroupForm() {
       </div>
 
       {state?.error && (
-        <p className="text-sm text-[var(--color-destructive)] bg-[var(--color-destructive)]/10 px-3 py-2 rounded-lg">
+        <p className="rounded-2xl bg-[color-mix(in_oklab,var(--color-destructive),transparent_88%)] px-4 py-3 text-sm text-[var(--color-destructive)]">
           {state.error}
         </p>
       )}

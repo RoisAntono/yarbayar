@@ -1,19 +1,34 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Body — humanist sans with subtle character (rounder than Inter)
+const sans = Plus_Jakarta_Sans({
+  variable: "--font-sans",
   subsets: ["latin"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+// Display — high-contrast serif used for hero numbers / large totals.
+// Makes Rupiah figures feel editorial, not generic dashboard.
+const display = Instrument_Serif({
+  variable: "--font-display",
+  weight: "400",
+  style: ["normal", "italic"],
   subsets: ["latin"],
+  display: "swap",
 });
+
+// Mono — for tabular figures in receipts, splits, and OCR text
+const mono = JetBrains_Mono({
+  variable: "--font-mono",
+  subsets: ["latin"],
+  display: "swap",
+});
+
 
 export const metadata: Metadata = {
   title: {
@@ -53,8 +68,9 @@ export default function RootLayout({
   return (
     <html
       lang="id"
-      className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      className={`${sans.variable} ${display.variable} ${mono.variable} antialiased`}
     >
+
       {/*
         suppressHydrationWarning is required because some popular browser
         extensions (Bitdefender, Grammarly, ColorZilla, etc.) inject

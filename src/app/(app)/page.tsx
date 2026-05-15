@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { ArrowRight, Plus, Receipt, TrendingDown, TrendingUp, Users } from "lucide-react";
+import { ArrowRight, Camera, Sparkles, TrendingDown, TrendingUp, Users } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { AnimatedNumber } from "@/components/animated-number";
 import { getCurrentUser, getMyGroupsWithSummary, getProfile } from "@/lib/data";
 import { cn, formatRupiah } from "@/lib/utils";
 
@@ -22,78 +23,98 @@ export default async function HomePage() {
   const owedToMe = groups.reduce((s, g) => s + Math.max(0, g.my_net), 0);
   const iOwe = groups.reduce((s, g) => s + Math.max(0, -g.my_net), 0);
   const greet = greeting();
+  const firstName = (profile?.full_name ?? user.email ?? "Teman").split(" ")[0];
 
   return (
-    <div className="px-4 pt-4 pb-6 space-y-5">
-      {/* Greeting */}
+    <div className="space-y-6 px-4 pt-4 pb-2">
+      {/* Greeting row */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs text-[var(--color-muted-foreground)]">{greet}</p>
-          <h2 className="text-xl font-semibold leading-tight">
-            Halo, {profile?.full_name ?? "teman"} 👋
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--color-muted-foreground)]">
+            {greet}
+          </p>
+          <h2 className="mt-0.5 text-2xl tracking-tight">
+            <span className="font-display-italic">Halo,</span>{" "}
+            <span className="font-medium">{firstName}</span>
           </h2>
         </div>
-        <Link href="/profile">
-          <Avatar name={profile?.full_name ?? user.email ?? "U"} size="md" />
+        <Link href="/profile" aria-label="Profil">
+          <Avatar
+            name={profile?.full_name ?? user.email ?? "U"}
+            size="md"
+            className="ring-2 ring-[var(--color-card)] shadow-[var(--shadow-card)]"
+          />
         </Link>
       </div>
 
-      {/* Balance hero */}
-      <Card className="relative overflow-hidden p-5 bg-gradient-to-br from-[var(--color-primary)] to-[color-mix(in_oklab,var(--color-primary),black_15%)] text-[var(--color-primary-foreground)] border-0">
-        <p className="text-xs/4 opacity-80">Saldo bersih kamu</p>
-        <p className="text-3xl font-bold tracking-tight mt-1">
-          {totalNet >= 0 ? formatRupiah(totalNet) : `-${formatRupiah(-totalNet)}`}
-        </p>
-        <p className="text-xs/4 opacity-80 mt-1">
-          {totalNet === 0
-            ? "Lunas dengan semua orang ✨"
-            : totalNet > 0
-              ? "Total yang harus diterima"
-              : "Total yang harus dibayar"}
-        </p>
-        <div className="grid grid-cols-2 gap-3 mt-5">
-          <div className="rounded-xl bg-white/15 backdrop-blur-sm p-3">
-            <div className="flex items-center gap-1.5 text-xs opacity-90">
-              <TrendingUp className="size-3.5" /> Diterima
-            </div>
-            <p className="font-semibold mt-1">{formatRupiah(owedToMe)}</p>
+      {/* Hero saldo — aurora bg, serif display number */}
+      <Card className="aurora grain relative overflow-hidden border-0 p-6 text-[var(--color-on-ink)] float-in">
+        <div className="relative z-[2]">
+          <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.18em] opacity-70">
+            <Sparkles className="size-3.5" />
+            Saldo bersih
           </div>
-          <div className="rounded-xl bg-white/15 backdrop-blur-sm p-3">
-            <div className="flex items-center gap-1.5 text-xs opacity-90">
-              <TrendingDown className="size-3.5" /> Dibayar
-            </div>
-            <p className="font-semibold mt-1">{formatRupiah(iOwe)}</p>
+          <p className="mt-2 text-5xl leading-none">
+            <span className="font-display tabular">
+              {totalNet >= 0 ? (
+                <AnimatedNumber value={totalNet} />
+              ) : (
+                <>
+                  <span aria-hidden>−</span>
+                  <AnimatedNumber value={-totalNet} />
+                </>
+              )}
+            </span>
+          </p>
+          <p className="mt-2 text-sm opacity-75">
+            {totalNet === 0
+              ? "Lunas dengan semua orang ✨"
+              : totalNet > 0
+                ? "yang harus kamu terima"
+                : "yang harus kamu bayar"}
+          </p>
+
+          <div className="mt-5 grid grid-cols-2 gap-2.5">
+            <BalanceTile
+              icon={<TrendingUp className="size-3.5" />}
+              label="Diterima"
+              value={owedToMe}
+              tone="positive"
+            />
+            <BalanceTile
+              icon={<TrendingDown className="size-3.5" />}
+              label="Dibayar"
+              value={iOwe}
+              tone="neutral"
+            />
           </div>
         </div>
       </Card>
 
       {/* Quick actions */}
       <div className="grid grid-cols-2 gap-3">
-        <Link href="/groups/new">
-          <Card className="p-4 hover:bg-[var(--color-muted)] transition-colors h-full flex items-center gap-3">
-            <span className="size-10 grid place-items-center rounded-xl bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
-              <Users className="size-5" />
-            </span>
-            <div className="text-sm font-medium leading-tight">Buat grup baru</div>
-          </Card>
-        </Link>
-        <Link href="/history">
-          <Card className="p-4 hover:bg-[var(--color-muted)] transition-colors h-full flex items-center gap-3">
-            <span className="size-10 grid place-items-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              <Receipt className="size-5" />
-            </span>
-            <div className="text-sm font-medium leading-tight">Riwayat transaksi</div>
-          </Card>
-        </Link>
+        <QuickAction
+          href="/groups"
+          icon={<Camera className="size-5" />}
+          title="Scan nota"
+          subtitle="Buat pengeluaran instan"
+          tone="accent"
+        />
+        <QuickAction
+          href="/groups/new"
+          icon={<Users className="size-5" />}
+          title="Grup baru"
+          subtitle="Ajak teman, atur split"
+        />
       </div>
 
-      {/* Groups */}
+      {/* Groups section */}
       <section>
-        <header className="flex items-center justify-between mb-2">
-          <h3 className="font-semibold">Grup kamu</h3>
+        <header className="mb-3 flex items-baseline justify-between">
+          <h3 className="text-base font-semibold tracking-tight">Grup kamu</h3>
           <Link
             href="/groups"
-            className="text-xs text-[var(--color-primary)] font-medium flex items-center gap-1"
+            className="inline-flex items-center gap-1 text-xs font-medium text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"
           >
             Lihat semua <ArrowRight className="size-3.5" />
           </Link>
@@ -107,32 +128,33 @@ export default async function HomePage() {
               description="Mulai dengan buat grup, ajak teman, lalu catat pengeluaran bareng."
               action={
                 <Link href="/groups/new">
-                  <Button size="sm" className="mt-2">
-                    <Plus className="size-4" /> Buat grup
+                  <Button variant="accent" size="sm" className="mt-2">
+                    Buat grup pertama
                   </Button>
                 </Link>
               }
             />
           </Card>
         ) : (
-          <ul className="space-y-2">
-            {groups.slice(0, 5).map((g) => (
-              <li key={g.id}>
+          <ul className="space-y-2.5">
+            {groups.slice(0, 5).map((g, i) => (
+              <li key={g.id} className="float-in" style={{ animationDelay: `${60 * i}ms` }}>
                 <Link href={`/groups/${g.id}`}>
-                  <Card className="p-4 flex items-center gap-3 hover:bg-[var(--color-muted)] transition-colors">
-                    <span className="size-11 grid place-items-center rounded-xl bg-[var(--color-muted)] text-xl">
+                  <Card className="group flex items-center gap-3.5 p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-float)]">
+                    <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[var(--color-muted)] text-2xl">
                       {g.emoji ?? "👥"}
                     </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold truncate">{g.name}</p>
-                      <p className="text-xs text-[var(--color-muted-foreground)]">
-                        {g.member_count} anggota · {formatRupiah(g.total_spent)}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold tracking-tight">{g.name}</p>
+                      <p className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
+                        {g.member_count} anggota · Total{" "}
+                        <span className="tabular">{formatRupiah(g.total_spent)}</span>
                       </p>
                     </div>
-                    <div className="text-right">
+                    <div className="shrink-0 text-right">
                       <p
                         className={cn(
-                          "text-sm font-semibold",
+                          "tabular text-sm font-semibold",
                           g.my_net > 0
                             ? "text-emerald-600 dark:text-emerald-400"
                             : g.my_net < 0
@@ -144,9 +166,9 @@ export default async function HomePage() {
                           ? "Lunas"
                           : g.my_net > 0
                             ? `+${formatRupiah(g.my_net)}`
-                            : `-${formatRupiah(-g.my_net)}`}
+                            : `−${formatRupiah(-g.my_net)}`}
                       </p>
-                      <p className="text-[10px] text-[var(--color-muted-foreground)]">
+                      <p className="mt-0.5 text-[10px] uppercase tracking-wider text-[var(--color-muted-foreground)]/70">
                         {g.my_net > 0 ? "diterima" : g.my_net < 0 ? "dibayar" : ""}
                       </p>
                     </div>
@@ -158,6 +180,80 @@ export default async function HomePage() {
         )}
       </section>
     </div>
+  );
+}
+
+function BalanceTile({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  tone: "positive" | "neutral";
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-2xl px-3.5 py-3 backdrop-blur-md",
+        tone === "positive"
+          ? "bg-[var(--color-accent)] text-[var(--color-accent-foreground)]"
+          : "bg-white/10 text-[var(--color-on-ink)]"
+      )}
+    >
+      <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.14em] opacity-80">
+        {icon} {label}
+      </div>
+      <p className="mt-1.5 tabular text-lg font-semibold">{formatRupiah(value)}</p>
+    </div>
+  );
+}
+
+function QuickAction({
+  href,
+  icon,
+  title,
+  subtitle,
+  tone,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  tone?: "accent";
+}) {
+  return (
+    <Link href={href}>
+      <Card
+        className={cn(
+          "h-full p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-float)]",
+          tone === "accent" &&
+            "border-0 bg-[var(--color-accent)] text-[var(--color-accent-foreground)] shadow-[var(--shadow-pop-accent)]"
+        )}
+      >
+        <span
+          className={cn(
+            "mb-2 grid size-9 place-items-center rounded-xl",
+            tone === "accent"
+              ? "bg-black/15 text-[var(--color-accent-foreground)]"
+              : "bg-[var(--color-muted)] text-[var(--color-foreground)]"
+          )}
+        >
+          {icon}
+        </span>
+        <p className="text-sm font-semibold tracking-tight">{title}</p>
+        <p
+          className={cn(
+            "mt-0.5 text-[11px]",
+            tone === "accent" ? "opacity-80" : "text-[var(--color-muted-foreground)]"
+          )}
+        >
+          {subtitle}
+        </p>
+      </Card>
+    </Link>
   );
 }
 

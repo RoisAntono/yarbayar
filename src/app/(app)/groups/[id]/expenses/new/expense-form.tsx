@@ -1,10 +1,11 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
-import { Camera, Receipt } from "lucide-react";
+import { Camera, Check, Receipt } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Segmented } from "@/components/ui/segmented";
@@ -111,45 +112,49 @@ export function ExpenseForm({ groupId, members, defaultPaidBy }: ExpenseFormProp
       <input type="hidden" name="split_method" value={method} />
       {receiptUrl && <input type="hidden" name="receipt_url" value={receiptUrl} />}
 
-      {/* Big amount input */}
-      <div className="space-y-2 text-center pt-2">
-        <Label className="text-xs text-[var(--color-muted-foreground)]">
-          Nominal
-        </Label>
-        <div className="flex items-baseline justify-center gap-1">
-          <span className="text-2xl font-medium text-[var(--color-muted-foreground)]">
-            Rp
-          </span>
-          <input
-            inputMode="numeric"
-            name="amount"
-            value={amount > 0 ? new Intl.NumberFormat("id-ID").format(amount) : ""}
-            onChange={(e) => setAmountStr(e.target.value)}
-            placeholder="0"
-            className="bg-transparent text-4xl font-bold tracking-tight outline-none w-full max-w-[260px] text-center placeholder:text-[var(--color-muted-foreground)]/40"
-          />
+      {/* Amount hero with aurora */}
+      <Card className="aurora grain relative overflow-hidden border-0 p-6 text-center text-[var(--color-on-ink)]">
+        <div className="relative z-[2]">
+          <Label className="text-[11px] font-medium uppercase tracking-[0.18em] opacity-70">
+            Nominal
+          </Label>
+          <div className="mt-2 flex items-baseline justify-center gap-1.5">
+            <span className="font-display text-2xl opacity-60">Rp</span>
+            <input
+              inputMode="numeric"
+              name="amount"
+              value={
+                amount > 0 ? new Intl.NumberFormat("id-ID").format(amount) : ""
+              }
+              onChange={(e) => setAmountStr(e.target.value)}
+              placeholder="0"
+              className="font-display tabular w-full max-w-[260px] bg-transparent text-center text-5xl tracking-tight outline-none placeholder:opacity-30"
+            />
+          </div>
+          {state?.fieldErrors?.amount && (
+            <p className="mt-2 text-xs text-[var(--color-warning)]">
+              {state.fieldErrors.amount}
+            </p>
+          )}
+          <div className="mt-4 flex items-center justify-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="accent"
+              onClick={() => setScannerOpen(true)}
+              loading={uploadingReceipt}
+            >
+              <Camera className="size-4" />
+              {receiptUrl ? "Ganti foto nota" : "Scan nota"}
+            </Button>
+            {receiptUrl && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium">
+                <Receipt className="size-3.5" /> Nota tersimpan
+              </span>
+            )}
+          </div>
         </div>
-        {state?.fieldErrors?.amount && (
-          <p className="text-xs text-[var(--color-destructive)]">
-            {state.fieldErrors.amount}
-          </p>
-        )}
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          onClick={() => setScannerOpen(true)}
-          loading={uploadingReceipt}
-        >
-          <Camera className="size-4" />
-          {receiptUrl ? "Ganti foto nota" : "Scan nota"}
-        </Button>
-        {receiptUrl && (
-          <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1 justify-center">
-            <Receipt className="size-3.5" /> Nota tersimpan
-          </p>
-        )}
-      </div>
+      </Card>
 
       <div className="space-y-1.5">
         <Label htmlFor="title">Judul</Label>
@@ -188,7 +193,7 @@ export function ExpenseForm({ groupId, members, defaultPaidBy }: ExpenseFormProp
             name="paid_by_member_id"
             value={paidBy}
             onChange={(e) => setPaidBy(e.target.value)}
-            className="h-12 w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-input)] px-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
+            className="h-12 w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-input)] px-3 text-base text-[var(--color-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
           >
             {members.map((m) => (
               <option key={m.id} value={m.id}>
@@ -205,10 +210,10 @@ export function ExpenseForm({ groupId, members, defaultPaidBy }: ExpenseFormProp
           <Label>Cara membagi</Label>
           <span
             className={cn(
-              "text-xs font-medium",
+              "tabular rounded-full px-2.5 py-0.5 text-[11px] font-medium",
               remainder === 0
-                ? "text-emerald-600 dark:text-emerald-400"
-                : "text-[var(--color-warning)]"
+                ? "bg-[color-mix(in_oklab,var(--color-success),transparent_88%)] text-[var(--color-success)]"
+                : "bg-[color-mix(in_oklab,var(--color-warning),transparent_85%)] text-[oklch(0.45_0.16_75)]"
             )}
           >
             {remainder === 0
@@ -231,33 +236,39 @@ export function ExpenseForm({ groupId, members, defaultPaidBy }: ExpenseFormProp
         {members.map((m) => {
           const split = splits.find((s) => s.memberId === m.id)?.amount ?? 0;
           const value = values[m.id] ?? 0;
+          const included = value > 0;
           return (
             <li
               key={m.id}
-              className="flex items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-3"
+              className={cn(
+                "flex items-center gap-3 rounded-2xl border p-3 transition-colors",
+                included
+                  ? "border-[var(--color-border)] bg-[var(--color-card)]"
+                  : "border-dashed border-[var(--color-border)] bg-transparent opacity-60"
+              )}
             >
               <input type="hidden" name="member_id" value={m.id} />
               <input type="hidden" name="member_value" value={value} />
               <Avatar name={m.display_name} size="sm" />
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{m.display_name}</p>
-                <p className="text-xs text-[var(--color-muted-foreground)]">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{m.display_name}</p>
+                <p className="tabular text-xs text-[var(--color-muted-foreground)]">
                   {formatRupiah(split)}
                 </p>
               </div>
               {method === "equal" && (
                 <button
                   type="button"
-                  onClick={() => setMemberValue(m.id, value > 0 ? 0 : 1)}
+                  onClick={() => setMemberValue(m.id, included ? 0 : 1)}
                   className={cn(
-                    "size-7 rounded-md border-2 grid place-items-center transition-colors",
-                    value > 0
-                      ? "bg-[var(--color-primary)] border-[var(--color-primary)] text-[var(--color-primary-foreground)]"
+                    "grid size-8 place-items-center rounded-xl border-2 transition-all active:scale-95",
+                    included
+                      ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-foreground)]"
                       : "border-[var(--color-border)]"
                   )}
-                  aria-label={value > 0 ? "Sertakan" : "Lewati"}
+                  aria-label={included ? "Sertakan" : "Lewati"}
                 >
-                  {value > 0 ? "✓" : ""}
+                  {included && <Check className="size-4" strokeWidth={3} />}
                 </button>
               )}
               {method === "exact" && (
@@ -268,7 +279,7 @@ export function ExpenseForm({ groupId, members, defaultPaidBy }: ExpenseFormProp
                     setMemberValue(m.id, parseRupiahInput(e.target.value))
                   }
                   placeholder="0"
-                  className="w-28 h-9 rounded-lg bg-[var(--color-muted)] px-2 text-right text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
+                  className="tabular h-10 w-28 rounded-xl bg-[var(--color-muted)] px-3 text-right text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
                 />
               )}
               {method === "percent" && (
@@ -280,25 +291,27 @@ export function ExpenseForm({ groupId, members, defaultPaidBy }: ExpenseFormProp
                       setMemberValue(m.id, Number(e.target.value) || 0)
                     }
                     placeholder="0"
-                    className="w-16 h-9 rounded-lg bg-[var(--color-muted)] px-2 text-right text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
+                    className="tabular h-10 w-16 rounded-xl bg-[var(--color-muted)] px-3 text-right text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
                   />
                   <span className="text-sm text-[var(--color-muted-foreground)]">%</span>
                 </div>
               )}
               {method === "shares" && (
-                <div className="inline-flex items-center gap-1">
+                <div className="inline-flex items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => setMemberValue(m.id, Math.max(0, value - 1))}
-                    className="size-8 rounded-md bg-[var(--color-muted)] font-bold"
+                    className="grid size-9 place-items-center rounded-xl bg-[var(--color-muted)] font-bold text-lg leading-none active:scale-95"
                   >
                     −
                   </button>
-                  <span className="w-8 text-center font-medium">{value}</span>
+                  <span className="tabular w-7 text-center text-sm font-semibold">
+                    {value}
+                  </span>
                   <button
                     type="button"
                     onClick={() => setMemberValue(m.id, value + 1)}
-                    className="size-8 rounded-md bg-[var(--color-muted)] font-bold"
+                    className="grid size-9 place-items-center rounded-xl bg-[var(--color-muted)] font-bold text-lg leading-none active:scale-95"
                   >
                     +
                   </button>
@@ -310,7 +323,7 @@ export function ExpenseForm({ groupId, members, defaultPaidBy }: ExpenseFormProp
       </ul>
 
       {state?.fieldErrors?.splits && (
-        <p className="text-sm text-[var(--color-destructive)] bg-[var(--color-destructive)]/10 px-3 py-2 rounded-lg">
+        <p className="rounded-2xl bg-[color-mix(in_oklab,var(--color-destructive),transparent_88%)] px-4 py-3 text-sm text-[var(--color-destructive)]">
           {state.fieldErrors.splits}
         </p>
       )}
@@ -326,7 +339,7 @@ export function ExpenseForm({ groupId, members, defaultPaidBy }: ExpenseFormProp
       </div>
 
       {state?.error && (
-        <p className="text-sm text-[var(--color-destructive)] bg-[var(--color-destructive)]/10 px-3 py-2 rounded-lg">
+        <p className="rounded-2xl bg-[color-mix(in_oklab,var(--color-destructive),transparent_88%)] px-4 py-3 text-sm text-[var(--color-destructive)]">
           {state.error}
         </p>
       )}

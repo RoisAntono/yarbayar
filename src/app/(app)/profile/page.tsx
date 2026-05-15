@@ -1,4 +1,4 @@
-import { LogOut, Mail, User as UserIcon } from "lucide-react";
+import { ChevronRight, Coins, LogOut, Mail } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -16,33 +16,52 @@ export default async function ProfilePage() {
 
   return (
     <>
-      <PageHeader title="Profil" />
-      <div className="px-4 py-4 space-y-5">
-        <Card className="p-5 flex flex-col items-center text-center">
-          <Avatar
-            name={profile?.full_name ?? user.email ?? "U"}
-            size="lg"
-            className="size-20 text-2xl mb-3"
+      <PageHeader title="Saya" />
+      <div className="space-y-5 px-4 py-4">
+        {/* Identity card with aurora */}
+        <Card className="aurora grain relative overflow-hidden border-0 p-6 text-center text-[var(--color-on-ink)] float-in">
+          <div className="relative z-[2] flex flex-col items-center">
+            <Avatar
+              name={profile?.full_name ?? user.email ?? "U"}
+              size="lg"
+              className="mb-3 size-20 text-2xl shadow-[var(--shadow-pop)] ring-4 ring-white/10"
+            />
+            <h2 className="text-xl tracking-tight">
+              <span className="font-display-italic">Halo,</span>{" "}
+              <span className="font-medium">
+                {(profile?.full_name ?? "Pengguna").split(" ")[0]}
+              </span>
+            </h2>
+            <p className="mt-1 inline-flex items-center gap-1.5 text-xs opacity-75">
+              <Mail className="size-3.5" />
+              {user.email}
+            </p>
+          </div>
+        </Card>
+
+        {/* Settings rows */}
+        <Card className="overflow-hidden">
+          <SettingsRow
+            icon={<Coins className="size-4" />}
+            label="Mata uang"
+            value={profile?.currency ?? "IDR"}
           />
-          <h2 className="font-semibold text-lg">{profile?.full_name ?? "Pengguna"}</h2>
-          <p className="text-sm text-[var(--color-muted-foreground)] flex items-center gap-1 mt-0.5">
-            <Mail className="size-3.5" />
-            {user.email}
-          </p>
         </Card>
 
-        <Card className="divide-y divide-[var(--color-border)]">
-          <Row icon={<UserIcon className="size-4" />} label="Mata uang" value={profile?.currency ?? "IDR"} />
-        </Card>
-
+        {/* Logout */}
         <form action={logoutAction}>
-          <Button type="submit" variant="outline" size="lg" className="w-full">
+          <Button
+            type="submit"
+            variant="outline"
+            size="lg"
+            className="w-full gap-2 text-[var(--color-destructive)] hover:bg-[color-mix(in_oklab,var(--color-destructive),transparent_92%)]"
+          >
             <LogOut className="size-4" />
             Keluar
           </Button>
         </form>
 
-        <p className="text-center text-xs text-[var(--color-muted-foreground)]">
+        <p className="text-center font-display-italic text-xs text-[var(--color-muted-foreground)]/70">
           Yarbayar · v0.1.0
         </p>
       </div>
@@ -50,16 +69,25 @@ export default async function ProfilePage() {
   );
 }
 
-function Row({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function SettingsRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
   return (
     <div className="flex items-center gap-3 p-4">
-      <span className="size-8 rounded-lg bg-[var(--color-muted)] grid place-items-center text-[var(--color-muted-foreground)]">
+      <span className="grid size-9 place-items-center rounded-xl bg-[var(--color-muted)] text-[var(--color-muted-foreground)]">
         {icon}
       </span>
       <div className="flex-1">
-        <p className="text-sm">{label}</p>
+        <p className="text-sm font-medium">{label}</p>
       </div>
-      <p className="text-sm text-[var(--color-muted-foreground)]">{value}</p>
+      <p className="tabular text-sm text-[var(--color-muted-foreground)]">{value}</p>
+      <ChevronRight className="size-4 text-[var(--color-muted-foreground)]/50" />
     </div>
   );
 }
