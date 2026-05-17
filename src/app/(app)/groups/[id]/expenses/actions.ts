@@ -25,6 +25,42 @@ function parseMethod(v: string): SplitMethod {
   return (METHODS as string[]).includes(v) ? (v as SplitMethod) : "equal";
 }
 
+/**
+ * The expense form uses <input type="date"> which only emits YYYY-MM-DD.
+ * Parsing that as an ISO string lands at midnight UTC, which destroys
+ * the hour-of-day signal the timeline chart relies on. So:
+ *
+ *   - Empty input → use right-now (full datetime).
+ *   - User picked TODAY → keep the date but use right-now's hour, so
+ *     the chart can show "spent at 14:32".
+ *   - User picked a past date → fall back to noon local. Better than
+ *     midnight UTC for any timezone east of UTC, where 00:00 of a date
+ *     can roll over into the previous day.
+ */
+function parseSpentAt(raw: string): string {
+  if (!raw) return new Date().toISOString();
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  if (!m) return raw; // already a full ISO string — trust it
+  const [, y, mo, d] = m;
+  const yy = Number(y);
+  const mm = Number(mo);
+  const dd = Number(d);
+  const now = new Date();
+  const isToday =
+    now.getFullYear() === yy &&
+    now.getMonth() + 1 === mm &&
+    now.getDate() === dd;
+  const dt = new Date(
+    yy,
+    mm - 1,
+    dd,
+    isToday ? now.getHours() : 12,
+    isToday ? now.getMinutes() : 0,
+    isToday ? now.getSeconds() : 0
+  );
+  return dt.toISOString();
+}
+
 /** Shared parser for both create and edit so validation stays consistent. */
 function parseExpenseForm(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
@@ -32,8 +68,7 @@ function parseExpenseForm(formData: FormData) {
   const amount = Number(String(formData.get("amount") ?? "0").replace(/[^\d]/g, ""));
   const paidBy = String(formData.get("paid_by_member_id") ?? "").trim();
   const method = parseMethod(String(formData.get("split_method") ?? "equal"));
-  const spentAt =
-    String(formData.get("spent_at") ?? "").trim() || new Date().toISOString();
+  const spentAt = parseSpentAt(String(formData.get("spent_at") ?? "").trim());
   const receiptUrl = String(formData.get("receipt_url") ?? "").trim() || null;
   const category = String(formData.get("category") ?? "").trim() || null;
   const memberIds = formData.getAll("member_id").map(String);

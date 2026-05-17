@@ -100,15 +100,23 @@ export function ExpenseForm({
   const [amountStr, setAmountStr] = useState(
     initial ? String(initial.amount) : ""
   );
-  const [paidBy, setPaidBy] = useState(initial?.paid_by_member_id ?? defaultPaidBy);
+  // Empty by default on create — forces the user to consciously pick the
+  // payer instead of accidentally saving with whoever was at the top of
+  // the list. On edit we keep the saved value.
+  const [paidBy, setPaidBy] = useState(initial?.paid_by_member_id ?? "");
   // For non-equal saved methods we degrade to exact editing — see helper.
   const [method, setMethod] = useState<SplitMethod>(
     initial && initial.split_method !== "equal" ? "exact" : initial?.split_method ?? "equal"
   );
+  // Same idea for splits: nothing pre-checked on create. Users almost
+  // always need to think about who's included (skipping the picky eater,
+  // for example), and a screen pre-filled with everyone selected
+  // encourages "save and forget". Edit mode still recovers from saved
+  // splits so existing expenses don't lose their state.
   const [values, setValues] = useState<Record<string, number>>(() =>
     initial
       ? recoverValuesForEdit(initial, members)
-      : Object.fromEntries(members.map((m) => [m.id, 1]))
+      : Object.fromEntries(members.map((m) => [m.id, 0]))
   );
   const [receiptUrl, setReceiptUrl] = useState<string | null>(
     initial?.receipt_url ?? null
@@ -289,14 +297,29 @@ export function ExpenseForm({
             name="paid_by_member_id"
             value={paidBy}
             onChange={(e) => setPaidBy(e.target.value)}
-            className="h-12 w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-input)] px-3 text-base text-[var(--color-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
+            required
+            aria-invalid={!!state?.fieldErrors?.paid_by}
+            className={cn(
+              "h-12 w-full rounded-xl border bg-[var(--color-input)] px-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]",
+              paidBy
+                ? "border-[var(--color-border)] text-[var(--color-foreground)]"
+                : "border-[var(--color-border)] text-[var(--color-muted-foreground)]"
+            )}
           >
+            <option value="" disabled>
+              Pilih anggota…
+            </option>
             {members.map((m) => (
-              <option key={m.id} value={m.id}>
+              <option key={m.id} value={m.id} className="text-[var(--color-foreground)]">
                 {m.display_name}
               </option>
             ))}
           </select>
+          {state?.fieldErrors?.paid_by && (
+            <p className="text-xs text-[var(--color-destructive)]">
+              {state.fieldErrors.paid_by}
+            </p>
+          )}
         </div>
       </div>
 
@@ -304,20 +327,26 @@ export function ExpenseForm({
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label>Cara membagi</Label>
-          <span
-            className={cn(
-              "tabular rounded-full px-2.5 py-0.5 text-[11px] font-medium",
-              remainder === 0
-                ? "bg-[color-mix(in_oklab,var(--color-success),transparent_88%)] text-[var(--color-success)]"
-                : "bg-[color-mix(in_oklab,var(--color-warning),transparent_85%)] text-[oklch(0.45_0.16_75)]"
-            )}
-          >
-            {remainder === 0
-              ? "Pas ✓"
-              : remainder > 0
-                ? `Sisa ${formatRupiah(remainder)}`
-                : `Lebih ${formatRupiah(-remainder)}`}
-          </span>
+          {amount > 0 && (
+            <span
+              className={cn(
+                "tabular rounded-full px-2.5 py-0.5 text-[11px] font-medium",
+                totalSplit === 0
+                  ? "bg-[color-mix(in_oklab,var(--color-warning),transparent_85%)] text-[oklch(0.45_0.16_75)]"
+                  : remainder === 0
+                    ? "bg-[color-mix(in_oklab,var(--color-success),transparent_88%)] text-[var(--color-success)]"
+                    : "bg-[color-mix(in_oklab,var(--color-warning),transparent_85%)] text-[oklch(0.45_0.16_75)]"
+              )}
+            >
+              {totalSplit === 0
+                ? "Pilih anggota dulu"
+                : remainder === 0
+                  ? "Pas ✓"
+                  : remainder > 0
+                    ? `Sisa ${formatRupiah(remainder)}`
+                    : `Lebih ${formatRupiah(-remainder)}`}
+            </span>
+          )}
         </div>
         <Segmented
           options={METHOD_OPTIONS}
@@ -325,6 +354,12 @@ export function ExpenseForm({
           onChange={(v) => setMethod(v)}
           className="w-full justify-between [&_button]:flex-1"
         />
+        {amount > 0 && totalSplit === 0 && (
+          <p className="rounded-xl bg-[color-mix(in_oklab,var(--color-warning),transparent_90%)] px-3 py-2 text-[11px] text-[oklch(0.45_0.16_75)]">
+            Centang anggota yang ikut patungan di bawah, atau isi nominal/persen/bagian
+            sesuai metode yang kamu pilih.
+          </p>
+        )}
       </div>
 
       {/* Per-member splits */}
@@ -446,7 +481,7 @@ export function ExpenseForm({
         loading={pending}
         size="lg"
         className="w-full"
-        disabled={amount <= 0 || remainder !== 0}
+        disabled={amount <= 0 || remainder !== 0 || !paidBy || totalSplit === 0}
       >
         {isEdit ? "Simpan perubahan" : "Simpan pengeluaran"}
       </Button>

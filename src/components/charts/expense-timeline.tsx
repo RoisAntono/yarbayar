@@ -56,7 +56,9 @@ export function ExpenseTimeline({
   expenses,
   variant = "group",
 }: ExpenseTimelineProps) {
-  const [range, setRange] = useState<TimelineRange>("1W");
+  // Default to "1D" (hourly buckets, today) so the first thing users
+  // see matches "Total hari ini per jam". 1W and 1M are one tap away.
+  const [range, setRange] = useState<TimelineRange>("1D");
 
   const data = useMemo(
     () => buildExpenseTimeline(expenses, members, { range }),
@@ -130,7 +132,7 @@ export function ExpenseTimeline({
                 />
                 <Tooltip content={<ChartTooltip members={members} hidden={hidden} variant={variant} />} />
                 <Area
-                  type="monotone"
+                  type="stepAfter"
                   dataKey="total"
                   stroke="var(--color-accent)"
                   strokeWidth={2.5}
@@ -165,11 +167,25 @@ export function ExpenseTimeline({
                 {members.map((m) => (
                   <Line
                     key={m.id}
-                    type="monotone"
+                    /*
+                      stepAfter: cumulative spend stays flat until the
+                      next bucket, then jumps. That's the truthful shape
+                      for "spent at hour X" data — `monotone` (smooth
+                      curve) made it look like spending grew linearly
+                      across hours, which it didn't.
+                    */
+                    type="stepAfter"
                     dataKey={m.id}
                     name={m.display_name}
-                    stroke={memberColor(m.display_name)}
-                    strokeWidth={2}
+                    /*
+                      Hash on member id (UUID) not display_name. The id
+                      is unique, stable, and won't collide when two
+                      members happen to map to the same palette index
+                      via name hashing. Also avoids "Kamu" rewriting
+                      changing the hue between accounts.
+                    */
+                    stroke={memberColor(m.id)}
+                    strokeWidth={2.5}
                     dot={false}
                     activeDot={{ r: 4 }}
                     isAnimationActive
@@ -195,7 +211,7 @@ export function ExpenseTimeline({
         <div className="flex flex-wrap gap-1.5">
           {members.map((m) => {
             const off = hidden.has(m.id);
-            const color = memberColor(m.display_name);
+            const color = memberColor(m.id);
             return (
               <button
                 key={m.id}
@@ -260,7 +276,7 @@ function ChartTooltip(props: ChartTooltipProps) {
                 >
                   <span
                     className="size-2 rounded-full"
-                    style={{ backgroundColor: memberColor(m.display_name) }}
+                    style={{ backgroundColor: memberColor(m.id) }}
                     aria-hidden
                   />
                   <span className="text-[var(--color-muted-foreground)]">

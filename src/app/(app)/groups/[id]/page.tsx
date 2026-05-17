@@ -151,6 +151,10 @@ export default async function GroupDetailPage({
           expenses={group.expenses.map((e) => ({
             amount: e.amount,
             spent_at: e.spent_at,
+            // created_at is used as a fallback in timeline.ts whenever
+            // spent_at lands on midnight (e.g. older rows recorded
+            // before time-preservation was added).
+            created_at: e.created_at,
             paid_by_member_id: e.paid_by_member_id,
             splits: e.splits,
           }))}

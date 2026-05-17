@@ -13,8 +13,17 @@ export type TimelineRange = "1D" | "1W" | "1M";
 
 interface TimelineExpense {
   amount: number;
-  /** ISO timestamp */
+  /** ISO timestamp of when the expense was spent (user-provided) */
   spent_at: string;
+  /**
+   * ISO timestamp of when the row was inserted. Used as a fallback when
+   * `spent_at` is exactly midnight (00:00:00) — that often means the
+   * user picked a date but no time, and pinning it to 00:00 hides the
+   * actual hour-of-day from the timeline chart. Older rows in the DB
+   * that were created before time-preservation was added benefit from
+   * this fallback automatically.
+   */
+  created_at?: string;
   paid_by_member_id: string;
   splits: { member_id: string; amount: number }[];
 }
@@ -122,7 +131,19 @@ export function buildExpenseTimeline(
   for (const t of buckets) perBucket.set(t, new Map());
 
   for (const e of expenses) {
-    const ts = new Date(e.spent_at).getTime();
+    // If spent_at is exactly midnight (00:00:00.000), the user almost
+    // certainly only picked a date in the form — so the hour is
+    // meaningless. Prefer created_at, which captures the actual moment
+    // the user logged the expense, and gives the chart a real hour-of-
+    // day to bucket on.
+    const spent = new Date(e.spent_at);
+    const isMidnight =
+      spent.getHours() === 0 &&
+      spent.getMinutes() === 0 &&
+      spent.getSeconds() === 0 &&
+      spent.getMilliseconds() === 0;
+    const ts =
+      isMidnight && e.created_at ? new Date(e.created_at).getTime() : spent.getTime();
     if (ts < startT || ts >= endT) continue;
     const bucket = bucketStart(ts, shape.bucketMs);
     const slot = perBucket.get(bucket);
