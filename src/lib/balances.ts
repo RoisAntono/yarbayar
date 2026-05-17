@@ -90,13 +90,37 @@ export interface ExpenseForBalance {
   splits: { memberId: string; amount: number }[];
 }
 
-export function computeBalances(expenses: ExpenseForBalance[]): Map<string, number> {
+export interface SettlementForBalance {
+  fromMemberId: string;
+  toMemberId: string;
+  amount: number;
+  /** Only confirmed settlements clear debt; pending ones are still outstanding. */
+  confirmed: boolean;
+}
+
+/**
+ * Compute net balance per member from raw expenses, plus optional
+ * settlements. A confirmed settlement of X from A→B means A owed B
+ * X less than expenses imply (A's net goes UP by X, B's goes DOWN
+ * by X). Pending (paid but not yet confirmed) settlements are NOT
+ * applied here — the recipient must acknowledge receipt first.
+ */
+export function computeBalances(
+  expenses: ExpenseForBalance[],
+  settlements: SettlementForBalance[] = []
+): Map<string, number> {
   const balance = new Map<string, number>();
   for (const e of expenses) {
     balance.set(e.paidByMemberId, (balance.get(e.paidByMemberId) ?? 0) + e.amount);
     for (const s of e.splits) {
       balance.set(s.memberId, (balance.get(s.memberId) ?? 0) - s.amount);
     }
+  }
+  for (const s of settlements) {
+    if (!s.confirmed) continue;
+    // A pays B → A's deficit shrinks (+amount), B's surplus shrinks (-amount).
+    balance.set(s.fromMemberId, (balance.get(s.fromMemberId) ?? 0) + s.amount);
+    balance.set(s.toMemberId, (balance.get(s.toMemberId) ?? 0) - s.amount);
   }
   return balance;
 }

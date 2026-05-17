@@ -12,10 +12,15 @@ import { Segmented } from "@/components/ui/segmented";
 import { Textarea } from "@/components/ui/textarea";
 import { ReceiptScanner } from "@/components/scan/receipt-scanner";
 import { computeSplits } from "@/lib/balances";
+import { CATEGORIES } from "@/lib/categories";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatRupiah, parseRupiahInput } from "@/lib/utils";
 import type { SplitMethod } from "@/types/database";
-import { createExpenseAction, type ExpenseFormState } from "../actions";
+import {
+  createExpenseAction,
+  editExpenseAction,
+  type ExpenseFormState,
+} from "../actions";
 
 interface Member {
   id: string;
@@ -23,10 +28,32 @@ interface Member {
   profile_id: string | null;
 }
 
+/**
+ * Initial values when editing an existing expense. When omitted the form
+ * defaults to a blank "create" state.
+ */
+export interface ExpenseInitial {
+  id: string;
+  title: string;
+  amount: number;
+  paid_by_member_id: string;
+  split_method: SplitMethod;
+  spent_at: string;
+  notes: string | null;
+  receipt_url: string | null;
+  category: string | null;
+  splits: { member_id: string; amount: number }[];
+}
+
 interface ExpenseFormProps {
   groupId: string;
   members: Member[];
   defaultPaidBy: string;
+  /**
+   * If provided, the form switches to edit mode: prefills fields and
+   * submits to editExpenseAction instead of createExpenseAction.
+   */
+  initial?: ExpenseInitial;
 }
 
 const METHOD_OPTIONS: { value: SplitMethod; label: string }[] = [
@@ -36,23 +63,63 @@ const METHOD_OPTIONS: { value: SplitMethod; label: string }[] = [
   { value: "shares", label: "Bagian" },
 ];
 
-export function ExpenseForm({ groupId, members, defaultPaidBy }: ExpenseFormProps) {
+/**
+ * Reverse-engineer the per-member input "value" from saved splits.
+ * For `equal` / `exact` we can derive these directly, but `percent` /
+ * `shares` aren't recoverable losslessly — we fall back to "exact"
+ * editing in those cases (still lets the user fix things), preserving
+ * each member's saved amount.
+ */
+function recoverValuesForEdit(initial: ExpenseInitial, members: Member[]) {
+  const splitMap = new Map(initial.splits.map((s) => [s.member_id, s.amount]));
+  if (initial.split_method === "equal") {
+    return Object.fromEntries(
+      members.map((m) => [m.id, splitMap.has(m.id) ? 1 : 0])
+    ) as Record<string, number>;
+  }
+  // exact / percent / shares — store amounts and switch method to "exact"
+  return Object.fromEntries(
+    members.map((m) => [m.id, splitMap.get(m.id) ?? 0])
+  ) as Record<string, number>;
+}
+
+export function ExpenseForm({
+  groupId,
+  members,
+  defaultPaidBy,
+  initial,
+}: ExpenseFormProps) {
+  const isEdit = !!initial;
+  const action = isEdit ? editExpenseAction : createExpenseAction;
   const [state, formAction, pending] = useActionState<ExpenseFormState, FormData>(
-    createExpenseAction,
+    action,
     undefined
   );
-  const [title, setTitle] = useState("");
-  const [amountStr, setAmountStr] = useState("");
-  const [paidBy, setPaidBy] = useState(defaultPaidBy);
-  const [method, setMethod] = useState<SplitMethod>("equal");
-  const [values, setValues] = useState<Record<string, number>>(() =>
-    Object.fromEntries(members.map((m) => [m.id, 1]))
+
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [amountStr, setAmountStr] = useState(
+    initial ? String(initial.amount) : ""
   );
-  const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
+  const [paidBy, setPaidBy] = useState(initial?.paid_by_member_id ?? defaultPaidBy);
+  // For non-equal saved methods we degrade to exact editing — see helper.
+  const [method, setMethod] = useState<SplitMethod>(
+    initial && initial.split_method !== "equal" ? "exact" : initial?.split_method ?? "equal"
+  );
+  const [values, setValues] = useState<Record<string, number>>(() =>
+    initial
+      ? recoverValuesForEdit(initial, members)
+      : Object.fromEntries(members.map((m) => [m.id, 1]))
+  );
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(
+    initial?.receipt_url ?? null
+  );
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const today = new Date().toISOString().slice(0, 10);
-  const [spentAt, setSpentAt] = useState(today);
+  const [spentAt, setSpentAt] = useState(
+    initial?.spent_at?.slice(0, 10) ?? today
+  );
+  const [category, setCategory] = useState<string | null>(initial?.category ?? null);
 
   const amount = parseRupiahInput(amountStr);
 
@@ -111,6 +178,8 @@ export function ExpenseForm({ groupId, members, defaultPaidBy }: ExpenseFormProp
       <input type="hidden" name="group_id" value={groupId} />
       <input type="hidden" name="split_method" value={method} />
       {receiptUrl && <input type="hidden" name="receipt_url" value={receiptUrl} />}
+      {category && <input type="hidden" name="category" value={category} />}
+      {initial && <input type="hidden" name="expense_id" value={initial.id} />}
 
       {/* Amount hero with aurora */}
       <Card className="aurora grain relative overflow-hidden border-0 p-6 text-center text-[var(--color-on-ink)]">
@@ -172,6 +241,33 @@ export function ExpenseForm({ groupId, members, defaultPaidBy }: ExpenseFormProp
             {state.fieldErrors.title}
           </p>
         )}
+      </div>
+
+      {/* Category picker — horizontal chip strip, optional */}
+      <div className="space-y-2">
+        <Label>Kategori (opsional)</Label>
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 no-scrollbar">
+          {CATEGORIES.map((c) => {
+            const active = category === c.slug;
+            return (
+              <button
+                key={c.slug}
+                type="button"
+                onClick={() => setCategory(active ? null : c.slug)}
+                aria-pressed={active}
+                className={cn(
+                  "shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all active:scale-95",
+                  active
+                    ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-foreground)] shadow-[var(--shadow-pop-accent)]"
+                    : "border-[var(--color-border)] bg-[var(--color-card)] text-[var(--color-foreground)]"
+                )}
+              >
+                <span aria-hidden>{c.emoji}</span>
+                {c.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -335,6 +431,7 @@ export function ExpenseForm({ groupId, members, defaultPaidBy }: ExpenseFormProp
           name="notes"
           placeholder="Tambahkan catatan…"
           rows={2}
+          defaultValue={initial?.notes ?? ""}
         />
       </div>
 
@@ -351,7 +448,7 @@ export function ExpenseForm({ groupId, members, defaultPaidBy }: ExpenseFormProp
         className="w-full"
         disabled={amount <= 0 || remainder !== 0}
       >
-        Simpan pengeluaran
+        {isEdit ? "Simpan perubahan" : "Simpan pengeluaran"}
       </Button>
 
       <ReceiptScanner

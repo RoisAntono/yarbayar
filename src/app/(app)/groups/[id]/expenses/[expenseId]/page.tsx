@@ -1,15 +1,18 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
-import { Calendar, Trash2, Wallet } from "lucide-react";
+import { Calendar, Lock, Pencil, Wallet } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/page-header";
 import { getCurrentUser, getGroupDetail } from "@/lib/data";
+import { editMinutesLeft, isWithinEditWindow } from "@/lib/edit-window";
 import { formatRupiah } from "@/lib/utils";
 import { deleteExpenseAction } from "../actions";
 import { ReceiptImage } from "./receipt-image";
+import { DeleteExpenseButton } from "./delete-button";
 
 export const metadata = { title: "Detail Pengeluaran" };
 export const dynamic = "force-dynamic";
@@ -28,6 +31,8 @@ export default async function ExpenseDetailPage({
   const memberMap = new Map(group.members.map((m) => [m.id, m]));
   const payer = memberMap.get(expense.paid_by_member_id);
   const myMember = group.members.find((m) => m.profile_id === user?.id);
+  const editable = isWithinEditWindow(expense.created_at);
+  const minsLeft = editMinutesLeft(expense.created_at);
 
   return (
     <>
@@ -57,6 +62,19 @@ export default async function ExpenseDetailPage({
             </div>
           </div>
         </Card>
+
+        {/* Edit window status */}
+        {editable ? (
+          <p className="flex items-center justify-center gap-1.5 rounded-2xl bg-[color-mix(in_oklab,var(--color-accent),transparent_88%)] px-4 py-2.5 text-xs text-[var(--color-foreground)]">
+            <Pencil className="size-3.5" />
+            Bisa diedit ~{minsLeft} menit lagi sebelum jadi permanen
+          </p>
+        ) : (
+          <p className="flex items-center justify-center gap-1.5 rounded-2xl bg-[var(--color-muted)] px-4 py-2.5 text-xs text-[var(--color-muted-foreground)]">
+            <Lock className="size-3.5" />
+            Pengeluaran ini sudah permanen (lebih dari 1 jam)
+          </p>
+        )}
 
         {expense.receipt_url && <ReceiptImage path={expense.receipt_url} />}
 
@@ -94,19 +112,23 @@ export default async function ExpenseDetailPage({
           </section>
         )}
 
-        <form action={deleteExpenseAction}>
-          <input type="hidden" name="expense_id" value={expense.id} />
-          <input type="hidden" name="group_id" value={group.id} />
-          <Button
-            type="submit"
-            variant="outline"
-            size="lg"
-            className="w-full gap-2 text-[var(--color-destructive)] hover:bg-[color-mix(in_oklab,var(--color-destructive),transparent_92%)]"
-          >
-            <Trash2 className="size-4" />
-            Hapus pengeluaran
-          </Button>
-        </form>
+        {/* Actions — only show when still in the edit window */}
+        {editable && (
+          <div className="grid grid-cols-2 gap-2">
+            <Link href={`/groups/${group.id}/expenses/${expense.id}/edit`}>
+              <Button variant="outline" size="lg" className="w-full gap-2">
+                <Pencil className="size-4" />
+                Edit
+              </Button>
+            </Link>
+            <DeleteExpenseButton
+              action={deleteExpenseAction}
+              expenseId={expense.id}
+              groupId={group.id}
+              expenseTitle={expense.title}
+            />
+          </div>
+        )}
       </div>
     </>
   );

@@ -1,7 +1,6 @@
 "use client";
 
-import { animate, useMotionValue, useTransform, motion } from "framer-motion";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatRupiah } from "@/lib/utils";
 
 interface AnimatedNumberProps {
@@ -14,9 +13,12 @@ interface AnimatedNumberProps {
 }
 
 /**
- * Smoothly counts from the previous value to the new value. Useful for
- * making summary numbers (saldo, total expense) feel alive instead of
- * snapping into place.
+ * Lightweight count-up. Previously used Framer Motion (~50KB gz) which
+ * was wildly overkill for tweening a single number — that import alone
+ * showed up on every hero card and noticeably hurt cold start on low-end
+ * Android. This version uses requestAnimationFrame, no deps.
+ *
+ * Also respects `prefers-reduced-motion`: just snaps to the final value.
  */
 export function AnimatedNumber({
   value,
@@ -24,16 +26,41 @@ export function AnimatedNumber({
   className,
   format = (n) => formatRupiah(n),
 }: AnimatedNumberProps) {
-  const motionValue = useMotionValue(0);
-  const display = useTransform(motionValue, (v) => format(Math.round(v)));
+  const [display, setDisplay] = useState(value);
+  const fromRef = useRef(value);
 
   useEffect(() => {
-    const controls = animate(motionValue, value, {
-      duration: duration / 1000,
-      ease: "easeOut",
-    });
-    return () => controls.stop();
-  }, [value, duration, motionValue]);
+    // Honor user setting — no animation if reduced motion is requested.
+    const reduceMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  return <motion.span className={className}>{display}</motion.span>;
+    if (reduceMotion || duration <= 0) {
+      fromRef.current = value;
+      setDisplay(value);
+      return;
+    }
+
+    const from = fromRef.current;
+    const to = value;
+    if (from === to) return;
+
+    const start = performance.now();
+    let raf = 0;
+
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      // easeOut cubic — feels more natural than linear
+      const eased = 1 - Math.pow(1 - t, 3);
+      const v = from + (to - from) * eased;
+      setDisplay(v);
+      if (t < 1) raf = requestAnimationFrame(tick);
+      else fromRef.current = to;
+    };
+
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value, duration]);
+
+  return <span className={className}>{format(Math.round(display))}</span>;
 }

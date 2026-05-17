@@ -45,6 +45,7 @@ export type Database = {
           name: string;
           emoji: string | null;
           owner_id: string;
+          archived_at: string | null;
           created_at: string;
         };
         Insert: {
@@ -52,11 +53,13 @@ export type Database = {
           name: string;
           emoji?: string | null;
           owner_id: string;
+          archived_at?: string | null;
           created_at?: string;
         };
         Update: {
           name?: string;
           emoji?: string | null;
+          archived_at?: string | null;
         };
         Relationships: [];
       };
@@ -93,6 +96,7 @@ export type Database = {
           split_method: SplitMethod;
           spent_at: string;
           receipt_url: string | null;
+          category: string | null;
           created_by: string;
           created_at: string;
         };
@@ -107,6 +111,7 @@ export type Database = {
           split_method?: SplitMethod;
           spent_at?: string;
           receipt_url?: string | null;
+          category?: string | null;
           created_by: string;
           created_at?: string;
         };
@@ -118,6 +123,40 @@ export type Database = {
           split_method?: SplitMethod;
           spent_at?: string;
           receipt_url?: string | null;
+          category?: string | null;
+        };
+        Relationships: [];
+      };
+      settlements: {
+        Row: {
+          id: string;
+          group_id: string;
+          from_member_id: string;
+          to_member_id: string;
+          amount: number;
+          note: string | null;
+          paid_at: string;
+          confirmed_at: string | null;
+          created_by: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          group_id: string;
+          from_member_id: string;
+          to_member_id: string;
+          amount: number;
+          note?: string | null;
+          paid_at?: string;
+          confirmed_at?: string | null;
+          created_by: string;
+          created_at?: string;
+        };
+        Update: {
+          amount?: number;
+          note?: string | null;
+          paid_at?: string;
+          confirmed_at?: string | null;
         };
         Relationships: [];
       };

@@ -125,8 +125,10 @@ export interface GroupDetail {
   name: string;
   emoji: string | null;
   owner_id: string;
+  archived_at: string | null;
   members: { id: string; display_name: string; profile_id: string | null }[];
   expenses: ExpenseWithSplits[];
+  settlements: SettlementRow[];
 }
 
 export interface ExpenseWithSplits {
@@ -136,18 +138,35 @@ export interface ExpenseWithSplits {
   notes: string | null;
   amount: number;
   spent_at: string;
+  /** When the row was inserted — used to enforce the 1-hour edit window. */
+  created_at: string;
   receipt_url: string | null;
   paid_by_member_id: string;
   split_method: "equal" | "exact" | "percent" | "shares";
+  category: string | null;
   splits: { member_id: string; amount: number }[];
+}
+
+export interface SettlementRow {
+  id: string;
+  group_id: string;
+  from_member_id: string;
+  to_member_id: string;
+  amount: number;
+  note: string | null;
+  paid_at: string;
+  /** Set when the recipient confirms receipt. Null = still pending. */
+  confirmed_at: string | null;
+  created_by: string;
+  created_at: string;
 }
 
 export async function getGroupDetail(groupId: string): Promise<GroupDetail | null> {
   const supabase = await createClient();
-  const [groupRes, membersRes, expensesRes] = await Promise.all([
+  const [groupRes, membersRes, expensesRes, settlementsRes] = await Promise.all([
     supabase
       .from("groups")
-      .select("id, name, emoji, owner_id")
+      .select("id, name, emoji, owner_id, archived_at")
       .eq("id", groupId)
       .maybeSingle(),
     supabase
@@ -158,15 +177,23 @@ export async function getGroupDetail(groupId: string): Promise<GroupDetail | nul
     supabase
       .from("expenses")
       .select(
-        "id, group_id, title, notes, amount, spent_at, receipt_url, paid_by_member_id, split_method"
+        "id, group_id, title, notes, amount, spent_at, created_at, receipt_url, paid_by_member_id, split_method, category"
       )
       .eq("group_id", groupId)
       .order("spent_at", { ascending: false }),
+    supabase
+      .from("settlements")
+      .select(
+        "id, group_id, from_member_id, to_member_id, amount, note, paid_at, confirmed_at, created_by, created_at"
+      )
+      .eq("group_id", groupId)
+      .order("paid_at", { ascending: false }),
   ]);
   if (groupRes.error) throw groupRes.error;
   if (!groupRes.data) return null;
   if (membersRes.error) throw membersRes.error;
   if (expensesRes.error) throw expensesRes.error;
+  if (settlementsRes.error) throw settlementsRes.error;
 
   const expenses = expensesRes.data ?? [];
   let splitsByExpense = new Map<string, { member_id: string; amount: number }[]>();
@@ -193,7 +220,14 @@ export async function getGroupDetail(groupId: string): Promise<GroupDetail | nul
     expenses: expenses.map((e) => ({
       ...e,
       amount: Number(e.amount),
+      // `category` is selected above but the row type may still come
+      // through without it on stale generated types — coalesce to null.
+      category: ("category" in e ? (e as { category: string | null }).category : null) ?? null,
       splits: splitsByExpense.get(e.id) ?? [],
+    })),
+    settlements: (settlementsRes.data ?? []).map((s) => ({
+      ...s,
+      amount: Number(s.amount),
     })),
   };
 }

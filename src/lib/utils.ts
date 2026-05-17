@@ -47,9 +47,35 @@ const PALETTE = [
   "bg-indigo-500",
 ];
 
-export function avatarColor(seed: string | null | undefined) {
-  if (!seed) return PALETTE[0];
+/**
+ * Hex equivalents of PALETTE — needed by Recharts (which doesn't read
+ * Tailwind classes). Index-aligned with PALETTE so the avatar color and
+ * chart line color for the same member always match.
+ */
+export const PALETTE_HEX = [
+  "#f43f5e", // rose-500
+  "#f59e0b", // amber-500
+  "#10b981", // emerald-500
+  "#0ea5e9", // sky-500
+  "#8b5cf6", // violet-500
+  "#ec4899", // pink-500
+  "#14b8a6", // teal-500
+  "#6366f1", // indigo-500
+];
+
+function hashString(seed: string): number {
   let h = 0;
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-  return PALETTE[h % PALETTE.length];
+  return h;
+}
+
+export function avatarColor(seed: string | null | undefined) {
+  if (!seed) return PALETTE[0];
+  return PALETTE[hashString(seed) % PALETTE.length];
+}
+
+/** Same hue as `avatarColor()`, but as a raw hex string for charts/SVG. */
+export function memberColor(seed: string | null | undefined) {
+  if (!seed) return PALETTE_HEX[0];
+  return PALETTE_HEX[hashString(seed) % PALETTE_HEX.length];
 }

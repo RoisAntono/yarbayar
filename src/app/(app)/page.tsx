@@ -138,7 +138,13 @@ export default async function HomePage() {
         ) : (
           <ul className="space-y-2.5">
             {groups.slice(0, 5).map((g, i) => (
-              <li key={g.id} className="float-in" style={{ animationDelay: `${60 * i}ms` }}>
+              <li
+                key={g.id}
+                // Stagger only the first 4 entries; deeper rows skip the
+                // entrance animation to keep low-end paint costs down.
+                className={i < 4 ? "float-in" : undefined}
+                style={i < 4 ? { animationDelay: `${60 * i}ms` } : undefined}
+              >
                 <Link href={`/groups/${g.id}`}>
                   <Card className="group flex items-center gap-3.5 p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-float)]">
                     <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[var(--color-muted)] text-2xl">

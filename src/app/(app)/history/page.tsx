@@ -55,11 +55,15 @@ export default async function HistoryPage() {
         ) : (
           Array.from(groups.entries()).map(([day, items], gi) => {
             const dayTotal = items.reduce((s, e) => s + Number(e.amount), 0);
+            // Animate only the first ~3 day-sections; older days come
+            // in instantly so we don't run dozens of animations on a
+            // long history list.
+            const animate = gi < 3;
             return (
               <section
                 key={day}
-                className="float-in"
-                style={{ animationDelay: `${gi * 60}ms` }}
+                className={animate ? "float-in" : undefined}
+                style={animate ? { animationDelay: `${gi * 60}ms` } : undefined}
               >
                 <header className="mb-2 flex items-center justify-between px-1">
                   <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-muted-foreground)]">
