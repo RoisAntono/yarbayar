@@ -3,7 +3,27 @@ import { LoginForm } from "./login-form";
 
 export const metadata = { title: "Masuk" };
 
-export default function LoginPage() {
+/**
+ * Login page accepts a `next` query param so flows like /join/[token]
+ * can redirect users back to where they came from after auth. The
+ * value is sanitized server-side in `loginAction` (must be /-prefixed,
+ * no protocol-relative escapes) — see `safeNext` in actions.ts.
+ */
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const { next } = await searchParams;
+  const safeNext = next?.startsWith("/") && !next.startsWith("//") ? next : "";
+
+  // Carry `next` into the register link too — if user clicks "Daftar"
+  // from a /join flow, the post-register redirect should still bring
+  // them back to the invite.
+  const registerHref = safeNext
+    ? `/register?next=${encodeURIComponent(safeNext)}`
+    : "/register";
+
   return (
     <>
       <div className="flex flex-1 flex-col justify-center">
@@ -20,12 +40,12 @@ export default function LoginPage() {
             Masuk ke Yarbayar untuk lanjut catat pengeluaran bareng teman.
           </p>
         </div>
-        <LoginForm />
+        <LoginForm next={safeNext} />
       </div>
       <p className="py-6 text-center text-sm text-[var(--color-muted-foreground)]">
         Belum punya akun?{" "}
         <Link
-          href="/register"
+          href={registerHref}
           className="font-semibold text-[var(--color-foreground)] underline-offset-4 hover:underline"
         >
           Daftar

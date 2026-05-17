@@ -301,3 +301,304 @@ export async function getRecentExpenses(limit = 30): Promise<RecentExpense[]> {
     };
   });
 }
+
+// ===========================================================================
+// Personal expenses + unified history
+// ===========================================================================
+
+export type PersonalKind = "expense" | "income";
+
+export interface PersonalExpense {
+  id: string;
+  title: string;
+  notes: string | null;
+  amount: number;
+  category: string | null;
+  kind: PersonalKind;
+  spent_at: string;
+}
+
+export async function getPersonalExpenses(
+  limit = 200
+): Promise<PersonalExpense[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("personal_expenses")
+    .select("id, title, notes, amount, category, kind, spent_at")
+    // Hide soft-deleted rows. Trash bin UI pakai query terpisah
+    // (`getArchivedPersonalExpenses`) untuk akses archived rows.
+    .is("archived_at", null)
+    .order("spent_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []).map((e) => ({
+    id: e.id,
+    title: e.title,
+    notes: e.notes,
+    amount: Number(e.amount),
+    category: e.category,
+    kind: (e.kind ?? "expense") as PersonalKind,
+    spent_at: e.spent_at,
+  }));
+}
+
+/**
+ * Trash bin entry — sama struktur dengan PersonalExpense plus
+ * `archived_at` timestamp supaya UI bisa show "diarsipkan 3 hari lalu".
+ */
+export interface ArchivedPersonalExpense extends PersonalExpense {
+  archived_at: string;
+}
+
+/**
+ * Khusus untuk trash bin di /profile/trash. Query yang sama dengan
+ * `getPersonalExpenses` tapi WHERE clause-nya kebalik: `archived_at IS
+ * NOT NULL`. Order by `archived_at desc` supaya yang baru dihapus
+ * tampil di atas — itu hierarki "rescue first" yang Gen-Z expect.
+ */
+export async function getArchivedPersonalExpenses(
+  limit = 200
+): Promise<ArchivedPersonalExpense[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("personal_expenses")
+    .select("id, title, notes, amount, category, kind, spent_at, archived_at")
+    .not("archived_at", "is", null)
+    .order("archived_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []).map((e) => ({
+    id: e.id,
+    title: e.title,
+    notes: e.notes,
+    amount: Number(e.amount),
+    category: e.category,
+    kind: (e.kind ?? "expense") as PersonalKind,
+    spent_at: e.spent_at,
+    archived_at: e.archived_at as string,
+  }));
+}
+
+/**
+ * Quick count untuk badge di profile page. Pakai count-only query
+ * supaya ngga transfer row data tidak perlu — Supabase support
+ * `count: 'exact', head: true`.
+ */
+export async function getArchivedPersonalCount(): Promise<number> {
+  const supabase = await createClient();
+  const { count, error } = await supabase
+    .from("personal_expenses")
+    .select("id", { count: "exact", head: true })
+    .not("archived_at", "is", null);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+
+/**
+ * Unified history item — either a personal entry (expense or income),
+ * or the user's share of a group expense. Discriminated by `source`.
+ *
+ * Why a tagged union? UI cares: personal → tap to edit; group → tap
+ * to open the group expense detail. The amount semantics also differ
+ * (personal = full amount, group = my_share). Group rows are always
+ * outflows (kind would be "expense"); personal rows can be either.
+ */
+export type UnifiedExpense =
+  | {
+      source: "personal";
+      kind: PersonalKind;
+      id: string;
+      title: string;
+      amount: number;
+      category: string | null;
+      spent_at: string;
+    }
+  | {
+      source: "group";
+      /** Group rows are always outflows for the user. */
+      kind: "expense";
+      id: string;
+      group_id: string;
+      group_name: string;
+      group_emoji: string | null;
+      title: string;
+      /** the user's share, NOT the total expense amount */
+      amount: number;
+      /** total expense amount, for context */
+      total_amount: number;
+      category: string | null;
+      spent_at: string;
+      /** true if I paid (so it's a payable, not just a share) */
+      i_paid: boolean;
+    };
+
+
+/**
+ * Read-time UNION:
+ *
+ *   personal_expenses (mine)
+ *     ⊕
+ *   the user's share of every group expense (computed from expense_splits
+ *   joined to my member_id in each group)
+ *
+ * Sorted by spent_at desc. The /history page renders this; group
+ * detail pages still use their own queries with full expense detail.
+ */
+export async function getUnifiedExpenses(
+  limit = 200
+): Promise<UnifiedExpense[]> {
+  const supabase = await createClient();
+  const { data: u } = await supabase.auth.getUser();
+  if (!u?.user) return [];
+  const uid = u.user.id;
+
+  const [personalRes, groupsRes, membersRes] = await Promise.all([
+    supabase
+      .from("personal_expenses")
+      .select("id, title, amount, category, kind, spent_at")
+      .is("archived_at", null)
+      .order("spent_at", { ascending: false })
+      .limit(limit),
+    supabase.from("groups").select("id, name, emoji"),
+    supabase
+      .from("group_members")
+      .select("id, group_id, profile_id")
+      .eq("profile_id", uid),
+  ]);
+
+  if (personalRes.error) throw personalRes.error;
+  if (groupsRes.error) throw groupsRes.error;
+  if (membersRes.error) throw membersRes.error;
+
+  // Build "my member id per group" lookup so we can find my share.
+  const myMemberByGroup = new Map<string, string>();
+  for (const m of membersRes.data ?? []) {
+    myMemberByGroup.set(m.group_id, m.id);
+  }
+  const myMemberIds = Array.from(myMemberByGroup.values());
+
+  // Pull all expense rows where I have a split, and the splits
+  // themselves restricted to my member_id. Bounded by `limit*5` since
+  // we don't know upfront how many groups → some buffer is fine.
+  let groupItems: UnifiedExpense[] = [];
+  if (myMemberIds.length > 0) {
+    const { data: mySplits, error: splitsErr } = await supabase
+      .from("expense_splits")
+      .select("expense_id, member_id, amount")
+      .in("member_id", myMemberIds);
+    if (splitsErr) throw splitsErr;
+
+    const expIds = (mySplits ?? []).map((s) => s.expense_id);
+    if (expIds.length > 0) {
+      const { data: exps, error: expErr } = await supabase
+        .from("expenses")
+        .select(
+          "id, group_id, paid_by_member_id, title, amount, category, spent_at"
+        )
+        .in("id", expIds)
+        .order("spent_at", { ascending: false })
+        .limit(limit);
+      if (expErr) throw expErr;
+
+      const groupMap = new Map(
+        (groupsRes.data ?? []).map((g) => [g.id, g])
+      );
+      const splitMap = new Map(
+        (mySplits ?? []).map((s) => [s.expense_id, Number(s.amount)])
+      );
+
+      groupItems = (exps ?? []).map((e) => {
+        const g = groupMap.get(e.group_id);
+        const myShare = splitMap.get(e.id) ?? 0;
+        const myMemberId = myMemberByGroup.get(e.group_id);
+        return {
+          source: "group" as const,
+          kind: "expense" as const,
+          id: e.id,
+          group_id: e.group_id,
+          group_name: g?.name ?? "",
+          group_emoji: g?.emoji ?? null,
+          title: e.title,
+          amount: myShare,
+          total_amount: Number(e.amount),
+          category: e.category,
+          spent_at: e.spent_at,
+          i_paid: myMemberId === e.paid_by_member_id,
+        };
+      });
+    }
+  }
+
+  const personalItems: UnifiedExpense[] = (personalRes.data ?? []).map((e) => ({
+    source: "personal" as const,
+    kind: ((e as { kind?: PersonalKind }).kind ?? "expense") as PersonalKind,
+    id: e.id,
+    title: e.title,
+    amount: Number(e.amount),
+    category: e.category,
+    spent_at: e.spent_at,
+  }));
+
+
+  // Merge & sort by spent_at desc.
+  const all = [...personalItems, ...groupItems].sort((a, b) => {
+    const ta = new Date(a.spent_at).getTime();
+    const tb = new Date(b.spent_at).getTime();
+    return tb - ta;
+  });
+  return all.slice(0, limit);
+}
+
+/**
+ * Quick monthly summary for the dashboard — outflows + inflows in the
+ * current calendar month, split by source.
+ *
+ *   total       = personal expenses + my share of group expenses
+ *                 (this is "berapa habis bulan ini")
+ *   income      = personal incomes only — group flow is always outflow
+ *   net         = income − total (positive = surplus, negative = defisit)
+ *
+ * Group rows always count as expenses regardless of personal kind.
+ */
+export interface MonthlySummary {
+  /** total outflow = personal expenses + my share of group expenses */
+  total: number;
+  personal_total: number;
+  group_share_total: number;
+  /** total inflow = personal incomes for the month */
+  income_total: number;
+  /** income - total (cashflow net) */
+  net: number;
+  /** count of all events (any source, any kind) */
+  count: number;
+}
+
+export async function getMonthlySummary(): Promise<MonthlySummary> {
+  const items = await getUnifiedExpenses(1000);
+  const now = new Date();
+  const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const inMonth = items.filter((i) => i.spent_at.startsWith(ym));
+
+  let personalExpense = 0;
+  let groupShare = 0;
+  let income = 0;
+  for (const i of inMonth) {
+    if (i.source === "personal") {
+      if (i.kind === "income") income += i.amount;
+      else personalExpense += i.amount;
+    } else {
+      // Group rows are always outflows for the user.
+      groupShare += i.amount;
+    }
+  }
+  const total = personalExpense + groupShare;
+  return {
+    total,
+    personal_total: personalExpense,
+    group_share_total: groupShare,
+    income_total: income,
+    net: income - total,
+    count: inMonth.length,
+  };
+}

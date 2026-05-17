@@ -39,7 +39,7 @@ export default async function GroupsPage() {
             <EmptyState
               icon={<Users className="size-7" />}
               title="Belum ada grup"
-              description="Grup memudahkan kamu mengelola pengeluaran bareng teman, keluarga, atau rekan trip."
+              description="Splitbill bareng teman, keluarga, atau geng trip."
               action={
                 <Link href="/groups/new">
                   <Button variant="accent" size="sm" className="mt-2">
@@ -74,9 +74,9 @@ export default async function GroupsPage() {
                         className={cn(
                           "tabular text-sm font-semibold",
                           g.my_net > 0
-                            ? "text-emerald-600 dark:text-emerald-400"
+                            ? "text-[var(--color-success)]"
                             : g.my_net < 0
-                              ? "text-rose-600 dark:text-rose-400"
+                              ? "text-[var(--color-destructive)]"
                               : "text-[var(--color-muted-foreground)]"
                         )}
                       >

@@ -180,7 +180,81 @@ export type Database = {
         };
         Relationships: [];
       };
+      personal_expenses: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          notes: string | null;
+          amount: number;
+          currency: string;
+          category: string | null;
+          /** "expense" (money out) or "income" (money in) */
+          kind: "expense" | "income";
+          spent_at: string;
+          created_at: string;
+          updated_at: string;
+          /** Soft-delete marker. NULL = aktif, non-NULL = di-archive. */
+          archived_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          title: string;
+          notes?: string | null;
+          amount: number;
+          currency?: string;
+          category?: string | null;
+          kind?: "expense" | "income";
+          spent_at?: string;
+          created_at?: string;
+          updated_at?: string;
+          archived_at?: string | null;
+        };
+        Update: {
+          title?: string;
+          notes?: string | null;
+          amount?: number;
+          category?: string | null;
+          kind?: "expense" | "income";
+          spent_at?: string;
+          /** Set to ISO timestamp untuk soft-delete; null untuk restore. */
+          archived_at?: string | null;
+        };
+        Relationships: [];
+      };
+      group_invites: {
+        Row: {
+          token: string;
+          group_id: string;
+          invited_member_id: string | null;
+          display_name: string | null;
+          created_by: string;
+          created_at: string;
+          expires_at: string;
+          used_at: string | null;
+          used_by: string | null;
+        };
+        Insert: {
+          token?: string;
+          group_id: string;
+          invited_member_id?: string | null;
+          display_name?: string | null;
+          created_by: string;
+          created_at?: string;
+          expires_at?: string;
+          used_at?: string | null;
+          used_by?: string | null;
+        };
+        Update: {
+          used_at?: string | null;
+          used_by?: string | null;
+          expires_at?: string;
+        };
+        Relationships: [];
+      };
     };
+
     Views: { [_ in never]: never };
     Functions: { [_ in never]: never };
     Enums: {

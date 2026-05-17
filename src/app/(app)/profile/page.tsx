@@ -1,10 +1,16 @@
-import { ChevronRight, Coins, LogOut, Mail } from "lucide-react";
+import Link from "next/link";
+import { ChevronRight, Clock, Coins, LogOut, Mail, Trash2 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/page-header";
 import { logoutAction } from "@/app/(auth)/actions";
-import { getCurrentUser, getProfile } from "@/lib/data";
+import { getCurrencyConfig } from "@/lib/currency";
+import {
+  getArchivedPersonalCount,
+  getCurrentUser,
+  getProfile,
+} from "@/lib/data";
 
 export const metadata = { title: "Profil" };
 export const dynamic = "force-dynamic";
@@ -12,7 +18,11 @@ export const dynamic = "force-dynamic";
 export default async function ProfilePage() {
   const user = await getCurrentUser();
   if (!user) return null;
-  const profile = await getProfile(user.id);
+  // Trash count di-fetch parallel — count-only query, super murah.
+  const [profile, archivedCount] = await Promise.all([
+    getProfile(user.id),
+    getArchivedPersonalCount(),
+  ]);
 
   return (
     <>
@@ -39,12 +49,44 @@ export default async function ProfilePage() {
           </div>
         </Card>
 
-        {/* Settings rows */}
-        <Card className="overflow-hidden">
-          <SettingsRow
+        {/* Settings rows.
+            Pattern: setiap row low-stakes navigasi → langsung Link
+            tanpa confirm dialog. Trash bin punya destructive action di
+            dalam halamannya sendiri, jadi entry-point ke /trash
+            sendiri non-destructive. */}
+        <Card className="overflow-hidden divide-y divide-[var(--color-border)]">
+          <SettingsLinkRow
+            href="/history"
+            icon={<Clock className="size-4" />}
+            label="Riwayat transaksi"
+            hint="Semua pengeluaran & pemasukan kamu"
+          />
+          {/*
+            Mata uang sekarang link ke picker page (/profile/currency).
+            Tampilkan label ringkas (mis. "Rupiah · Rp") di kanan supaya
+            user bisa lihat current setting tanpa masuk picker. Pakai
+            getCurrencyConfig defensive — kalau profile.currency null
+            untuk fresh user, default ke IDR.
+          */}
+          <SettingsLinkRow
+            href="/profile/currency"
             icon={<Coins className="size-4" />}
             label="Mata uang"
-            value={profile?.currency ?? "IDR"}
+            hint={(() => {
+              const c = getCurrencyConfig(profile?.currency);
+              return `${c.label} · ${c.symbol}`;
+            })()}
+          />
+          <SettingsLinkRow
+            href="/profile/trash"
+            icon={<Trash2 className="size-4" />}
+            label="Sampah"
+            badge={archivedCount > 0 ? String(archivedCount) : undefined}
+            hint={
+              archivedCount > 0
+                ? "Catatan yang dihapus, bisa dipulihkan"
+                : "Kosong"
+            }
           />
         </Card>
 
@@ -69,25 +111,45 @@ export default async function ProfilePage() {
   );
 }
 
-function SettingsRow({
+/**
+ * Same shape as SettingsRow but anchored to a Link with optional
+ * count badge (mis. trash count) dan hint subtitle.
+ */
+function SettingsLinkRow({
+  href,
   icon,
   label,
-  value,
+  badge,
+  hint,
 }: {
+  href: string;
   icon: React.ReactNode;
   label: string;
-  value: string;
+  badge?: string;
+  hint?: string;
 }) {
   return (
-    <div className="flex items-center gap-3 p-4">
+    <Link
+      href={href}
+      className="flex items-center gap-3 p-4 transition-colors active:bg-[var(--color-muted)] active:scale-[0.99]"
+    >
       <span className="grid size-9 place-items-center rounded-xl bg-[var(--color-muted)] text-[var(--color-muted-foreground)]">
         {icon}
       </span>
-      <div className="flex-1">
+      <div className="min-w-0 flex-1">
         <p className="text-sm font-medium">{label}</p>
+        {hint && (
+          <p className="mt-0.5 truncate text-[11px] text-[var(--color-muted-foreground)]">
+            {hint}
+          </p>
+        )}
       </div>
-      <p className="tabular text-sm text-[var(--color-muted-foreground)]">{value}</p>
+      {badge && (
+        <span className="tabular rounded-full bg-[var(--color-accent)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-accent-foreground)]">
+          {badge}
+        </span>
+      )}
       <ChevronRight className="size-4 text-[var(--color-muted-foreground)]/50" />
-    </div>
+    </Link>
   );
 }

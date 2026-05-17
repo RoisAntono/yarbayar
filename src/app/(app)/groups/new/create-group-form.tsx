@@ -54,7 +54,7 @@ export function CreateGroupForm() {
         <Input
           id="name"
           name="name"
-          placeholder="Mis. Trip Bali, Geng Kosan"
+          placeholder="Trip Bali, geng kosan…"
           required
           aria-invalid={!!state?.fieldErrors?.name}
         />

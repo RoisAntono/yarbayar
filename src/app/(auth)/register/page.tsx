@@ -3,7 +3,23 @@ import { RegisterForm } from "./register-form";
 
 export const metadata = { title: "Daftar" };
 
-export default function RegisterPage() {
+/**
+ * Register page also accepts `next` so /join flows complete cleanly
+ * for users who don't yet have an account. Sanitization happens in
+ * `registerAction` (`safeNext` in actions.ts).
+ */
+export default async function RegisterPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const { next } = await searchParams;
+  const safeNext = next?.startsWith("/") && !next.startsWith("//") ? next : "";
+
+  const loginHref = safeNext
+    ? `/login?next=${encodeURIComponent(safeNext)}`
+    : "/login";
+
   return (
     <>
       <div className="flex flex-1 flex-col justify-center">
@@ -19,12 +35,12 @@ export default function RegisterPage() {
             Mulai catat dan bagi pengeluaran bareng teman dalam hitungan detik.
           </p>
         </div>
-        <RegisterForm />
+        <RegisterForm next={safeNext} />
       </div>
       <p className="py-6 text-center text-sm text-[var(--color-muted-foreground)]">
         Sudah punya akun?{" "}
         <Link
-          href="/login"
+          href={loginHref}
           className="font-semibold text-[var(--color-foreground)] underline-offset-4 hover:underline"
         >
           Masuk

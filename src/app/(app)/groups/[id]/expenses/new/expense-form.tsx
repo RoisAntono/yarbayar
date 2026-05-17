@@ -10,7 +10,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Segmented } from "@/components/ui/segmented";
 import { Textarea } from "@/components/ui/textarea";
-import { ReceiptScanner } from "@/components/scan/receipt-scanner";
+import { ReceiptScanner } from "@/components/scan/receipt-scanner-loader";
+import {
+  clearFormDraft,
+  getLocalPref,
+  setLocalPref,
+  useFormDraft,
+} from "@/hooks/use-form-draft";
 import { computeSplits } from "@/lib/balances";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatRupiah, parseRupiahInput } from "@/lib/utils";
@@ -20,6 +26,18 @@ import {
   editExpenseAction,
   type ExpenseFormState,
 } from "../actions";
+
+/**
+ * localStorage keys, scoped per group:
+ *   - draft  : title/amount/notes/method snapshot for create flow
+ *   - payer  : last `paid_by` user picked, restored as smart default
+ *
+ * Splits state intentionally tidak ke draft: kalau member grup berubah,
+ * draft jadi stale + risk silent bug. Title + amount cukup berharga.
+ */
+const draftKey = (groupId: string) => `yb:expense-form:${groupId}:draft`;
+const payerKey = (groupId: string) => `yb:expense-form:${groupId}:lastPayer`;
+
 
 interface Member {
   id: string;
@@ -99,10 +117,17 @@ export function ExpenseForm({
   const [amountStr, setAmountStr] = useState(
     initial ? String(initial.amount) : ""
   );
-  // Empty by default on create — forces the user to consciously pick the
-  // payer instead of accidentally saving with whoever was at the top of
-  // the list. On edit we keep the saved value.
-  const [paidBy, setPaidBy] = useState(initial?.paid_by_member_id ?? "");
+  // Smart default: pakai member terakhir yang dipilih per-grup (kalau
+  // ada di list current). Kalau tidak — empty, biar user sadar pilih.
+  // Edit mode tetap pakai saved value.
+  const [paidBy, setPaidBy] = useState(() => {
+    if (initial) return initial.paid_by_member_id;
+    if (typeof window === "undefined") return "";
+    const last = getLocalPref(payerKey(groupId));
+    return last && members.some((m) => m.id === last) ? last : "";
+  });
+  const [notes, setNotes] = useState(initial?.notes ?? "");
+
   // For non-equal saved methods we degrade to exact editing — see helper.
   const [method, setMethod] = useState<SplitMethod>(
     initial && initial.split_method !== "equal" ? "exact" : initial?.split_method ?? "equal"
@@ -127,7 +152,22 @@ export function ExpenseForm({
     initial?.spent_at?.slice(0, 10) ?? today
   );
 
+  // Draft auto-save (create-only). Splits state sengaja excluded — see
+  // top-of-file comment. `initial` (edit mode) skip restore.
+  useFormDraft(
+    draftKey(groupId),
+    { title, amountStr, notes, method },
+    (draft) => {
+      if (isEdit) return;
+      setTitle(draft.title);
+      setAmountStr(draft.amountStr);
+      setNotes(draft.notes);
+      setMethod(draft.method);
+    }
+  );
+
   const amount = parseRupiahInput(amountStr);
+
 
   const splits = useMemo(() => {
     return computeSplits(
@@ -179,8 +219,20 @@ export function ExpenseForm({
     }
   }
 
+  // Submit wrapper: simpan paidBy sebagai last-used, clear draft,
+  // delegasi ke server action. NEXT_REDIRECT throw di server akan
+  // mengakhiri form lifecycle — clear di sini lebih reliable dari
+  // useEffect cleanup.
+  function handleSubmit(fd: FormData) {
+    if (!isEdit) {
+      if (paidBy) setLocalPref(payerKey(groupId), paidBy);
+      clearFormDraft(draftKey(groupId));
+    }
+    return formAction(fd);
+  }
+
   return (
-    <form action={formAction} className="space-y-5">
+    <form action={handleSubmit} className="space-y-5">
       <input type="hidden" name="group_id" value={groupId} />
       <input type="hidden" name="split_method" value={method} />
       {receiptUrl && <input type="hidden" name="receipt_url" value={receiptUrl} />}
@@ -237,7 +289,7 @@ export function ExpenseForm({
           name="title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Mis. Makan siang, Bensin, Tiket"
+          placeholder="Makan siang, bensin, tiket…"
           required
           aria-invalid={!!state?.fieldErrors?.title}
         />
@@ -327,8 +379,7 @@ export function ExpenseForm({
         />
         {amount > 0 && totalSplit === 0 && (
           <p className="rounded-xl bg-[color-mix(in_oklab,var(--color-warning),transparent_90%)] px-3 py-2 text-[11px] text-[oklch(0.45_0.16_75)]">
-            Centang anggota yang ikut patungan di bawah, atau isi nominal/persen/bagian
-            sesuai metode yang kamu pilih.
+            Pilih siapa aja yang ikut bayar di bawah ↓
           </p>
         )}
       </div>
@@ -435,9 +486,10 @@ export function ExpenseForm({
         <Textarea
           id="notes"
           name="notes"
-          placeholder="Tambahkan catatan…"
+          placeholder="Catatan (opsional)"
           rows={2}
-          defaultValue={initial?.notes ?? ""}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
         />
       </div>
 

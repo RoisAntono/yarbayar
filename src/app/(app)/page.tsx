@@ -1,12 +1,27 @@
 import Link from "next/link";
-import { ArrowRight, Camera, Sparkles, TrendingDown, TrendingUp, Users } from "lucide-react";
+import {
+  ArrowRight,
+  ChevronRight,
+  Plus,
+  Sparkles,
+  TrendingDown,
+  TrendingUp,
+  Users,
+  Wallet,
+} from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { AnimatedNumber } from "@/components/animated-number";
-import { getCurrentUser, getMyGroupsWithSummary, getProfile } from "@/lib/data";
-import { cn, formatRupiah } from "@/lib/utils";
+import {
+  getCurrentUser,
+  getMonthlySummary,
+  getMyGroupsWithSummary,
+  getProfile,
+} from "@/lib/data";
+import { getCurrencyConfig } from "@/lib/currency";
+import { cn, formatMoney, formatRupiah } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -14,9 +29,10 @@ export default async function HomePage() {
   const user = await getCurrentUser();
   if (!user) return null;
 
-  const [profile, groups] = await Promise.all([
+  const [profile, groups, summary] = await Promise.all([
     getProfile(user.id),
     getMyGroupsWithSummary(),
+    getMonthlySummary(),
   ]);
 
   const totalNet = groups.reduce((s, g) => s + g.my_net, 0);
@@ -24,6 +40,12 @@ export default async function HomePage() {
   const iOwe = groups.reduce((s, g) => s + Math.max(0, -g.my_net), 0);
   const greet = greeting();
   const firstName = (profile?.full_name ?? user.email ?? "Teman").split(" ")[0];
+  // User's currency preference — dipakai untuk personal-scope display
+  // (cashflow card). Hero saldo + group rows tetap pakai formatRupiah
+  // karena nilai aggregat dari group expenses yang punya currency
+  // sendiri di schema (groups.currency, default IDR, belum exposed
+  // ke UI).
+  const userCurrency = getCurrencyConfig(profile?.currency).code;
 
   return (
     <div className="space-y-6 px-4 pt-4 pb-2">
@@ -91,20 +113,83 @@ export default async function HomePage() {
         </div>
       </Card>
 
+      {/* Cashflow bulan ini — gabungan pemasukan/pengeluaran personal
+          + share di grup. Hadir setelah hero saldo karena ini adalah
+          secondary signal: saldo = "berapa hutang/piutang", cashflow
+          = "berapa duit masuk vs keluar".
+
+          Whole card di-wrap Link ke /history — single tappable
+          affordance match pattern row di seluruh app (group rows,
+          personal rows, settings rows). Dua link kecil "Riwayat
+          →" + "Detail →" yang sebelumnya ada di header itu visual
+          clutter — sekarang tap area = card-wide, dengan
+          ChevronRight subtle di pojok kanan sebagai cue. */}
+      {summary.count > 0 && (
+        <Link href="/history" className="block">
+          <Card className="space-y-3 p-4 float-in transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-float)] active:scale-[0.99]">
+            <div className="flex items-center gap-2">
+              <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-[color-mix(in_oklab,var(--color-accent),transparent_85%)] text-[var(--color-accent)]">
+                <Wallet className="size-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-muted-foreground)]">
+                  Cashflow bulan ini
+                </p>
+                <p
+                  className={cn(
+                    "tabular text-lg font-semibold tracking-tight",
+                    summary.net > 0
+                      ? "text-[var(--color-success)]"
+                      : summary.net < 0
+                        ? "text-[var(--color-destructive)]"
+                        : ""
+                  )}
+                >
+                  {summary.net > 0 ? "+" : summary.net < 0 ? "−" : ""}
+                  {formatMoney(Math.abs(summary.net), userCurrency)}
+                </p>
+              </div>
+              <ChevronRight
+                aria-hidden
+                className="size-4 shrink-0 text-[var(--color-muted-foreground)]/50"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="rounded-xl bg-[var(--color-muted)] px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">
+                  Masuk
+                </p>
+                <p className="tabular mt-0.5 text-sm font-semibold text-[var(--color-success)]">
+                  {formatMoney(summary.income_total, userCurrency)}
+                </p>
+              </div>
+              <div className="rounded-xl bg-[var(--color-muted)] px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">
+                  Keluar
+                </p>
+                <p className="tabular mt-0.5 text-sm font-semibold">
+                  {formatMoney(summary.total, userCurrency)}
+                </p>
+              </div>
+            </div>
+          </Card>
+        </Link>
+      )}
+
       {/* Quick actions */}
       <div className="grid grid-cols-2 gap-3">
         <QuickAction
-          href="/groups"
-          icon={<Camera className="size-5" />}
-          title="Scan nota"
-          subtitle="Buat pengeluaran instan"
+          href="/personal/new"
+          icon={<Plus className="size-5" />}
+          title="Catat pribadi"
+          subtitle="Pemasukan & pengeluaran solo"
           tone="accent"
         />
         <QuickAction
           href="/groups/new"
           icon={<Users className="size-5" />}
           title="Grup baru"
-          subtitle="Ajak teman, atur split"
+          subtitle="Splitbill bareng teman"
         />
       </div>
 
@@ -125,7 +210,7 @@ export default async function HomePage() {
             <EmptyState
               icon={<Users className="size-7" />}
               title="Belum ada grup"
-              description="Mulai dengan buat grup, ajak teman, lalu catat pengeluaran bareng."
+              description="Buat grup, ajak teman, mulai splitbill."
               action={
                 <Link href="/groups/new">
                   <Button variant="accent" size="sm" className="mt-2">
@@ -160,11 +245,15 @@ export default async function HomePage() {
                     <div className="shrink-0 text-right">
                       <p
                         className={cn(
+                          // CSS var so theming stays consistent
+                          // app-wide (sebelumnya hardcoded
+                          // emerald/rose dari tailwind, beda dari
+                          // semantic var di file lain).
                           "tabular text-sm font-semibold",
                           g.my_net > 0
-                            ? "text-emerald-600 dark:text-emerald-400"
+                            ? "text-[var(--color-success)]"
                             : g.my_net < 0
-                              ? "text-rose-600 dark:text-rose-400"
+                              ? "text-[var(--color-destructive)]"
                               : "text-[var(--color-muted-foreground)]"
                         )}
                       >

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Receipt, Plus, User, Users } from "lucide-react";
+import { Home, Plus, User, Users, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -12,9 +12,17 @@ import { cn } from "@/lib/utils";
  *   - Container: detached pill with glass + heavy shadow, sitting above
  *     the safe-area inset (NOT spanning edge-to-edge).
  *   - 4 nav items + 1 center FAB:
- *       Beranda · Grup · [+ Tambah] · Riwayat · Saya
+ *       Beranda · Grup · [+ Tambah] · Pribadi · Saya
  *   - The FAB is *raised* above the pill (negative top margin) and uses
  *     the saffron accent so it pops against the dark midnight pill.
+ *   - FAB is context-aware:
+ *       • In a group → /groups/[id]/expenses/new
+ *       • On /personal → /personal/new
+ *       • Anywhere else → /personal/new (most common solo case)
+ *   - "Pribadi" tab also lights up on /history because /history is the
+ *     unified personal+group share view — it's the same mental model.
+ *     Direct entry to /history is via the Beranda card or the
+ *     "Riwayat →" link inside /personal.
  *   - Active item shows a small dot below it (animated in via .nav-pop).
  */
 
@@ -39,10 +47,12 @@ const ITEMS: NavItem[] = [
     match: (p) => p.startsWith("/groups"),
   },
   {
-    href: "/history",
-    label: "Riwayat",
-    icon: Receipt,
-    match: (p) => p.startsWith("/history"),
+    href: "/personal",
+    label: "Pribadi",
+    icon: Wallet,
+    // Also light up "Pribadi" when user is on /history since
+    // history is the default flow that surfaces personal data.
+    match: (p) => p.startsWith("/personal") || p.startsWith("/history"),
   },
   {
     href: "/profile",
@@ -55,14 +65,21 @@ const ITEMS: NavItem[] = [
 export function BottomNav() {
   const pathname = usePathname();
 
-  // Decide where the "+ Tambah" button takes the user. If we're in a
-  // group, pre-fill that group; otherwise it routes to the group list
-  // and the user picks a group first.
+  // Decide where the "+ Tambah" button takes the user. Three cases:
+  //
+  //   1. Inside a group — straight to that group's new-expense flow.
+  //   2. On /personal subtree — straight to new personal expense.
+  //   3. Anywhere else — go to new personal expense (most common for
+  //      Gen-Z daily-tracking flow).
   const groupMatch = pathname.match(/^\/groups\/([^/]+)/);
-  const addHref =
-    groupMatch && groupMatch[1] !== "new"
-      ? `/groups/${groupMatch[1]}/expenses/new`
-      : "/groups";
+  let addHref: string;
+  if (groupMatch && groupMatch[1] !== "new") {
+    addHref = `/groups/${groupMatch[1]}/expenses/new`;
+  } else if (pathname.startsWith("/personal")) {
+    addHref = "/personal/new";
+  } else {
+    addHref = "/personal/new";
+  }
 
   // Split items into left and right halves around the center FAB
   const left = ITEMS.slice(0, 2);

@@ -13,9 +13,23 @@ function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+/**
+ * Whitelist `next` to internal pathnames only — prevents open-redirect
+ * via attacker-supplied URLs. Anything that isn't a /-prefixed path or
+ * tries to go outside the app gets ignored, falling back to /.
+ */
+function safeNext(next: string | undefined): string {
+  if (!next) return "/";
+  if (!next.startsWith("/")) return "/";
+  // Block protocol-relative attacks like //evil.com
+  if (next.startsWith("//")) return "/";
+  return next;
+}
+
 export async function loginAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
+  const next = safeNext(String(formData.get("next") ?? ""));
 
   const fieldErrors: NonNullable<AuthState>["fieldErrors"] = {};
   if (!isValidEmail(email)) fieldErrors.email = "Email tidak valid";
@@ -39,13 +53,16 @@ export async function loginAction(_prev: AuthState, formData: FormData): Promise
   }
 
   revalidatePath("/", "layout");
-  redirect("/");
+  redirect(next);
 }
+
 
 export async function registerAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const full_name = String(formData.get("full_name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
+  const next = safeNext(String(formData.get("next") ?? ""));
+
 
   const fieldErrors: NonNullable<AuthState>["fieldErrors"] = {};
   if (full_name.length < 2) fieldErrors.full_name = "Nama minimal 2 karakter";
@@ -67,7 +84,7 @@ export async function registerAction(_prev: AuthState, formData: FormData): Prom
   }
 
   revalidatePath("/", "layout");
-  redirect("/");
+  redirect(next);
 }
 
 export async function logoutAction() {

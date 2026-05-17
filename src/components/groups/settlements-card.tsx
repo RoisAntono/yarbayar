@@ -2,11 +2,36 @@
 
 import { useRef, useTransition } from "react";
 import { ArrowRight, Check, Clock, CornerDownLeft, X } from "lucide-react";
+import { toast } from "sonner";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn, formatRupiah } from "@/lib/utils";
+
+/**
+ * Wrapper untuk server action call yang memberikan toast feedback.
+ * Settlement actions = primary social flow — wajib visual confirmation
+ * (Gen-Z principle: "Haptic-like feedback wajib setelah action sukses").
+ *
+ * Server actions di sini ngga return error state (tipe `Promise<void>`),
+ * jadi kita handle via try/catch. Kalau action throw → toast error;
+ * kalau resolve → toast success dengan label yang sesuai konteks.
+ */
+async function withToast<T>(
+  promise: Promise<T>,
+  successMsg: string,
+  errorMsg = "Gagal memproses, coba lagi"
+): Promise<void> {
+  try {
+    await promise;
+    toast.success(successMsg);
+  } catch (err) {
+    console.warn("Settlement action failed", err);
+    toast.error(errorMsg);
+  }
+}
+
 
 interface MemberLite {
   id: string;
@@ -216,6 +241,11 @@ export function SettlementsCard({
                         variant="accent"
                         size="sm"
                         className="flex-1 gap-1.5"
+                        successToast={
+                          ownerCanConfirm
+                            ? `Pelunasan ${debtor?.display_name} dikonfirmasi`
+                            : `Pelunasan dari ${name(s.from_member_id)} dikonfirmasi ✓`
+                        }
                         label={
                           <>
                             <Check className="size-4" />
@@ -317,7 +347,16 @@ function MarkPaidForm({
       </summary>
       <form
         ref={formRef}
-        action={(fd) => start(() => action(fd))}
+        action={(fd) =>
+          start(() =>
+            withToast(
+              action(fd),
+              proxyLabel
+                ? `Ditandai sudah bayar ke ${toName}`
+                : `Pembayaran ke ${toName} dicatat`
+            )
+          )
+        }
         className="mt-2 flex gap-2"
       >
         <input type="hidden" name="group_id" value={groupId} />
@@ -346,6 +385,7 @@ function ServerActionButton({
   variant,
   size,
   className,
+  successToast,
 }: {
   action: (fd: FormData) => Promise<void>;
   formFields: Record<string, string>;
@@ -353,11 +393,22 @@ function ServerActionButton({
   variant?: "accent" | "outline" | "destructive" | "default" | "secondary" | "ghost";
   size?: "sm" | "default" | "lg" | "icon";
   className?: string;
+  /**
+   * Toast message saat action sukses. Optional — kalau callsite ngga
+   * butuh feedback (mis. mutation visual sudah jelas), boleh skip.
+   */
+  successToast?: string;
 }) {
   const [pending, start] = useTransition();
   return (
     <form
-      action={(fd) => start(() => action(fd))}
+      action={(fd) =>
+        start(() =>
+          successToast
+            ? withToast(action(fd), successToast)
+            : action(fd)
+        )
+      }
       className={cn("inline-flex", className && "flex-1")}
     >
       {Object.entries(formFields).map(([k, v]) => (
@@ -387,10 +438,22 @@ function ConfirmWithdraw({
   groupId: string;
   toName: string;
 }) {
+  // Pakai ref + onSubmit interception supaya bisa wrap dengan toast
+  // tanpa double-action (kalau pakai form action={...}, form submit
+  // langsung trigger sebelum kita catch error).
   const formRef = useRef<HTMLFormElement>(null);
   return (
     <>
-      <form ref={formRef} action={action} className="hidden">
+      <form
+        ref={formRef}
+        action={(fd) =>
+          withToast(
+            action(fd),
+            "Tanda pembayaran dibatalkan, tagihan kembali terbuka"
+          )
+        }
+        className="hidden"
+      >
         <input type="hidden" name="settlement_id" value={settlementId} />
         <input type="hidden" name="group_id" value={groupId} />
       </form>

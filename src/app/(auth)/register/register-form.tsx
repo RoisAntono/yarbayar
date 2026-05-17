@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function RegisterForm() {
+export function RegisterForm({ next }: { next?: string }) {
   const [state, formAction, pending] = useActionState<AuthState, FormData>(
     registerAction,
     undefined
@@ -16,6 +16,7 @@ export function RegisterForm() {
 
   return (
     <form action={formAction} className="space-y-4">
+      {next && <input type="hidden" name="next" value={next} />}
       <div className="space-y-1.5">
         <Label htmlFor="full_name">Nama lengkap</Label>
         <Input
@@ -23,7 +24,7 @@ export function RegisterForm() {
           name="full_name"
           type="text"
           autoComplete="name"
-          placeholder="Mis. Budi Santoso"
+          placeholder="Nama lengkap kamu"
           required
           aria-invalid={!!state?.fieldErrors?.full_name}
         />

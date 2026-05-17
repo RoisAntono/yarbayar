@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import { Toaster } from "sonner";
+import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
 
 // Body — humanist sans with subtle character (rounder than Inter)
@@ -80,7 +80,12 @@ export default function RootLayout({
       */}
       <body className="min-h-dvh" suppressHydrationWarning>
         {children}
-        <Toaster position="top-center" richColors closeButton />
+        {/*
+          Custom Toaster wrapper: glass card + tinted icon containers
+          yang match design system. Lihat `components/ui/toaster.tsx`
+          untuk detail classNames per-type.
+        */}
+        <Toaster />
         {/* Free in Vercel's Hobby tier; only ship in production. */}
         <Analytics />
         <SpeedInsights />

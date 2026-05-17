@@ -184,8 +184,8 @@ export default async function GroupDetailPage({
                     <span
                       className={
                         memberNet > 0
-                          ? "tabular text-[10px] font-semibold text-emerald-600 dark:text-emerald-400"
-                          : "tabular text-[10px] font-semibold text-rose-600 dark:text-rose-400"
+                          ? "tabular text-[10px] font-semibold text-[var(--color-success)]"
+                          : "tabular text-[10px] font-semibold text-[var(--color-destructive)]"
                       }
                     >
                       {memberNet > 0 ? "+" : "−"}
@@ -232,7 +232,7 @@ export default async function GroupDetailPage({
               <EmptyState
                 icon={<Receipt className="size-7" />}
                 title="Belum ada pengeluaran"
-                description="Catat pengeluaran pertama, atau scan nota langsung dari kamera."
+                description="Tap tombol di bawah buat catat atau scan nota."
                 action={
                   <Link href={`/groups/${group.id}/expenses/new`}>
                     <Button variant="accent" size="sm" className="mt-2">

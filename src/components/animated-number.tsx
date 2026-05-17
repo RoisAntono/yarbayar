@@ -1,15 +1,21 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { formatRupiah } from "@/lib/utils";
+import { formatMoney } from "@/lib/utils";
 
 interface AnimatedNumberProps {
   value: number;
   /** ms duration */
   duration?: number;
   className?: string;
-  /** Format the displayed text. Defaults to Rupiah. */
+  /** Format the displayed text. Defaults to formatMoney with given currency. */
   format?: (n: number) => string;
+  /**
+   * Currency code untuk default formatter. Diabaikan kalau `format`
+   * di-supply manual. Default IDR — backwards compat dengan callsite
+   * yang belum currency-aware.
+   */
+  currency?: string;
 }
 
 /**
@@ -24,8 +30,13 @@ export function AnimatedNumber({
   value,
   duration = 700,
   className,
-  format = (n) => formatRupiah(n),
+  format,
+  currency = "IDR",
 }: AnimatedNumberProps) {
+  // Default formatter: pakai currency prop, fallback IDR. Stable
+  // closure via inline arrow → tidak trigger re-render saat parent
+  // re-render karena currency string identity stable.
+  const formatFn = format ?? ((n: number) => formatMoney(n, currency));
   const [display, setDisplay] = useState(value);
   const fromRef = useRef(value);
 
@@ -62,5 +73,5 @@ export function AnimatedNumber({
     return () => cancelAnimationFrame(raf);
   }, [value, duration]);
 
-  return <span className={className}>{format(Math.round(display))}</span>;
+  return <span className={className}>{formatFn(Math.round(display))}</span>;
 }
