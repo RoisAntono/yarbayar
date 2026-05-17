@@ -12,7 +12,6 @@ import { Segmented } from "@/components/ui/segmented";
 import { Textarea } from "@/components/ui/textarea";
 import { ReceiptScanner } from "@/components/scan/receipt-scanner";
 import { computeSplits } from "@/lib/balances";
-import { CATEGORIES } from "@/lib/categories";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatRupiah, parseRupiahInput } from "@/lib/utils";
 import type { SplitMethod } from "@/types/database";
@@ -127,7 +126,6 @@ export function ExpenseForm({
   const [spentAt, setSpentAt] = useState(
     initial?.spent_at?.slice(0, 10) ?? today
   );
-  const [category, setCategory] = useState<string | null>(initial?.category ?? null);
 
   const amount = parseRupiahInput(amountStr);
 
@@ -186,7 +184,6 @@ export function ExpenseForm({
       <input type="hidden" name="group_id" value={groupId} />
       <input type="hidden" name="split_method" value={method} />
       {receiptUrl && <input type="hidden" name="receipt_url" value={receiptUrl} />}
-      {category && <input type="hidden" name="category" value={category} />}
       {initial && <input type="hidden" name="expense_id" value={initial.id} />}
 
       {/* Amount hero with aurora */}
@@ -251,32 +248,6 @@ export function ExpenseForm({
         )}
       </div>
 
-      {/* Category picker — horizontal chip strip, optional */}
-      <div className="space-y-2">
-        <Label>Kategori (opsional)</Label>
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 no-scrollbar">
-          {CATEGORIES.map((c) => {
-            const active = category === c.slug;
-            return (
-              <button
-                key={c.slug}
-                type="button"
-                onClick={() => setCategory(active ? null : c.slug)}
-                aria-pressed={active}
-                className={cn(
-                  "shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all active:scale-95",
-                  active
-                    ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-foreground)] shadow-[var(--shadow-pop-accent)]"
-                    : "border-[var(--color-border)] bg-[var(--color-card)] text-[var(--color-foreground)]"
-                )}
-              >
-                <span aria-hidden>{c.emoji}</span>
-                {c.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">

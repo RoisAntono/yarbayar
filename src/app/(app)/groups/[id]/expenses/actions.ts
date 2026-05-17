@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { computeSplits } from "@/lib/balances";
+import { inferCategory } from "@/lib/categories";
 import { isWithinEditWindow } from "@/lib/edit-window";
 import type { SplitMethod } from "@/types/database";
 
@@ -70,7 +71,6 @@ function parseExpenseForm(formData: FormData) {
   const method = parseMethod(String(formData.get("split_method") ?? "equal"));
   const spentAt = parseSpentAt(String(formData.get("spent_at") ?? "").trim());
   const receiptUrl = String(formData.get("receipt_url") ?? "").trim() || null;
-  const category = String(formData.get("category") ?? "").trim() || null;
   const memberIds = formData.getAll("member_id").map(String);
   const memberValues = formData.getAll("member_value").map((v) => Number(String(v) || "0"));
 
@@ -98,10 +98,36 @@ function parseExpenseForm(formData: FormData) {
     method,
     spentAt,
     receiptUrl,
-    category,
     splits,
     fieldErrors,
   };
+}
+
+/**
+ * Look up the categories already used in this group so the auto-
+ * categorizer can fold similar titles into existing buckets instead
+ * of creating new ones for every variation. Cheap query — scoped to
+ * one group, deduped, distinct values only.
+ */
+async function existingCategoriesForGroup(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  groupId: string,
+  excludeExpenseId?: string
+): Promise<string[]> {
+  let q = supabase
+    .from("expenses")
+    .select("category")
+    .eq("group_id", groupId)
+    .not("category", "is", null);
+  if (excludeExpenseId) q = q.neq("id", excludeExpenseId);
+  const { data } = await q;
+  if (!data) return [];
+  const set = new Set<string>();
+  for (const row of data) {
+    const c = (row as { category: string | null }).category;
+    if (c) set.add(c);
+  }
+  return Array.from(set);
 }
 
 export async function createExpenseAction(
@@ -118,6 +144,12 @@ export async function createExpenseAction(
   const { data: u } = await supabase.auth.getUser();
   if (!u.user) return { error: "Sesi habis, silakan masuk ulang" };
 
+  // Auto-derive the category from the title. We pass the group's
+  // existing categories so titles like "kopi senja" get folded into a
+  // pre-existing "kopi-pagi" bucket via fuzzy match (see lib/categories).
+  const existing = await existingCategoriesForGroup(supabase, groupId);
+  const category = inferCategory(parsed.title, existing);
+
   const { data: expense, error } = await supabase
     .from("expenses")
     .insert({
@@ -129,7 +161,7 @@ export async function createExpenseAction(
       split_method: parsed.method,
       spent_at: parsed.spentAt,
       receipt_url: parsed.receiptUrl,
-      category: parsed.category,
+      category,
       created_by: u.user.id,
     })
     .select("id")
@@ -169,20 +201,30 @@ export async function editExpenseAction(
 
   // Verify edit window. We use `created_at` as the anchor so the user
   // can't game the clock by changing `spent_at`.
-  const { data: existing, error: fetchErr } = await supabase
+  const { data: existingRow, error: fetchErr } = await supabase
     .from("expenses")
     .select("created_at")
     .eq("id", expenseId)
     .maybeSingle();
-  if (fetchErr || !existing) {
+  if (fetchErr || !existingRow) {
     return { error: "Pengeluaran tidak ditemukan" };
   }
-  if (!isWithinEditWindow(existing.created_at)) {
+  if (!isWithinEditWindow(existingRow.created_at)) {
     return {
       error:
         "Pengeluaran ini sudah lebih dari 1 jam dan jadi permanen. Hapus lalu buat ulang kalau perlu.",
     };
   }
+
+  // Re-derive category on edit too — when the user changes the title,
+  // category should follow. Exclude the current row so its old category
+  // doesn't influence the fuzzy match against itself.
+  const existingCats = await existingCategoriesForGroup(
+    supabase,
+    groupId,
+    expenseId
+  );
+  const category = inferCategory(parsed.title, existingCats);
 
   const { error: updateErr } = await supabase
     .from("expenses")
@@ -194,7 +236,7 @@ export async function editExpenseAction(
       split_method: parsed.method,
       spent_at: parsed.spentAt,
       receipt_url: parsed.receiptUrl,
-      category: parsed.category,
+      category,
     })
     .eq("id", expenseId);
   if (updateErr) return { error: updateErr.message };

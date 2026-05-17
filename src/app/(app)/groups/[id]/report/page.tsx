@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
-import { ArrowRight, Calendar, Sparkles, TrendingUp, Wallet } from "lucide-react";
+import { ArrowRight, Calendar, ChevronRight, Sparkles, Users, Wallet } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/page-header";
@@ -54,31 +54,6 @@ export default async function GroupReportPage({
       );
     }
   }
-
-  // Sort members by what they actually spent out-of-pocket — the user
-  // who talanginned the most shows up first. Makes the highest-impact
-  // contributor obvious without scanning numbers.
-  const sortedMembers = [...group.members].sort(
-    (a, b) =>
-      (paidByMember.get(b.id) ?? 0) - (paidByMember.get(a.id) ?? 0) ||
-      (consumedByMember.get(b.id) ?? 0) - (consumedByMember.get(a.id) ?? 0)
-  );
-
-  // Stats for the hero — actual numbers from data, not averages.
-  const topSpender = sortedMembers
-    .map((m) => ({
-      id: m.id,
-      name: m.profile_id === user?.id ? "Kamu" : m.display_name,
-      paid: Math.round(paidByMember.get(m.id) ?? 0),
-    }))
-    .find((m) => m.paid > 0);
-
-  // The maximum any one member talangined — used to size progress bars
-  // so the bar relative to "the biggest spender" is meaningful.
-  const maxPaid = Math.max(
-    1,
-    ...group.members.map((m) => paidByMember.get(m.id) ?? 0)
-  );
 
   const balances = computeBalances(
     group.expenses.map((e) => ({
@@ -150,20 +125,11 @@ export default async function GroupReportPage({
             <div className="mt-4 grid grid-cols-2 gap-2.5 text-xs">
               <div className="rounded-2xl bg-white/10 px-3 py-2.5 backdrop-blur-md">
                 <div className="flex items-center gap-1.5 opacity-80">
-                  <TrendingUp className="size-3" /> Talangin terbanyak
+                  <Users className="size-3" /> Anggota
                 </div>
-                {topSpender ? (
-                  <>
-                    <p className="tabular mt-1 text-base font-semibold leading-tight">
-                      {formatRupiah(topSpender.paid)}
-                    </p>
-                    <p className="mt-0.5 truncate text-[11px] opacity-75">
-                      {topSpender.name}
-                    </p>
-                  </>
-                ) : (
-                  <p className="tabular mt-1 text-base font-semibold">—</p>
-                )}
+                <p className="tabular mt-1 text-base font-semibold">
+                  {group.members.length} orang
+                </p>
               </div>
               <div className="rounded-2xl bg-white/10 px-3 py-2.5 backdrop-blur-md">
                 <div className="flex items-center gap-1.5 opacity-80">
@@ -183,109 +149,171 @@ export default async function GroupReportPage({
           </div>
         </Card>
 
-        {/* Per-member breakdown — actual numbers from real data */}
+        {/*
+          Per-member breakdown — redesigned for clarity.
+
+          Earlier this card showed "Talangin" (out-of-pocket) as the
+          headline number with "Konsumsi" tucked away in 10px text.
+          Easy to misread "Talangin" as the person's actual share of
+          the trip — it isn't. The actual share is Konsumsi.
+
+          New layout:
+            • Primary stat = Bagian (consumption / real share)
+            • Secondary stat = Bayar di muka (out-of-pocket / paid up front)
+            • Status = net to receive or pay back
+            • Re-sorted by consumption descending so "the person who
+              spent the most on themselves" appears first — that's the
+              question users actually have when scanning the list.
+        */}
         <section>
-          <header className="mb-2 flex items-center justify-between gap-2 px-1">
+          <header className="mb-2 flex items-baseline justify-between gap-2 px-1">
             <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-muted-foreground)]">
               Pengeluaran per orang
             </h3>
             <p className="text-[10px] text-[var(--color-muted-foreground)]/70">
-              Talangin · Konsumsi · Selisih
+              Diurutkan dari bagian terbesar
             </p>
           </header>
-          <Card className="divide-y divide-[var(--color-border)]">
-            {sortedMembers.map((m) => {
-              const paid = Math.round(paidByMember.get(m.id) ?? 0);
-              const consumed = Math.round(consumedByMember.get(m.id) ?? 0);
-              const net = Math.round(balances.get(m.id) ?? 0);
-              const paidPct = (paid / maxPaid) * 100;
-              const isMe = m.id === myMember?.id;
+          {(() => {
+            // Sort by consumption desc — what each person actually
+            // owes for the trip, biggest first.
+            const byConsumption = [...group.members].sort(
+              (a, b) =>
+                (consumedByMember.get(b.id) ?? 0) -
+                (consumedByMember.get(a.id) ?? 0)
+            );
+            // Max consumption — sizes the progress bar. We bar-by
+            // consumption (not paid) so the bar tracks the headline.
+            const maxConsumed = Math.max(
+              1,
+              ...group.members.map((m) => consumedByMember.get(m.id) ?? 0)
+            );
 
-              return (
-                <div key={m.id} className="space-y-2 p-4">
-                  {/* Top row — name + biggest number (talangin) */}
-                  <div className="flex items-center gap-3">
-                    <Avatar name={m.display_name} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold">
-                        {isMe ? "Kamu" : m.display_name}
-                      </p>
-                      <p className="text-[11px] text-[var(--color-muted-foreground)]">
-                        Talangin{" "}
-                        <span className="tabular font-semibold text-[var(--color-foreground)]">
-                          {formatRupiah(paid)}
-                        </span>
-                      </p>
-                    </div>
-                    {net === 0 ? (
-                      <span className="shrink-0 text-xs font-semibold text-[var(--color-muted-foreground)]">
-                        Lunas
-                      </span>
-                    ) : net > 0 ? (
-                      <div className="shrink-0 text-right">
-                        <span className="tabular text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-                          +{formatRupiah(net)}
-                        </span>
-                        <p className="text-[10px] uppercase tracking-wider text-[var(--color-muted-foreground)]/70">
-                          diterima
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="shrink-0 text-right">
-                        <span className="tabular text-sm font-semibold text-rose-600 dark:text-rose-400">
-                          −{formatRupiah(-net)}
-                        </span>
-                        <p className="text-[10px] uppercase tracking-wider text-[var(--color-muted-foreground)]/70">
-                          dibayar
-                        </p>
-                      </div>
-                    )}
-                  </div>
+            return (
+              <Card className="divide-y divide-[var(--color-border)]">
+                {byConsumption.map((m) => {
+                  const paid = Math.round(paidByMember.get(m.id) ?? 0);
+                  const consumed = Math.round(consumedByMember.get(m.id) ?? 0);
+                  const net = Math.round(balances.get(m.id) ?? 0);
+                  const consumedPct = (consumed / maxConsumed) * 100;
+                  const isMe = m.id === myMember?.id;
 
-                  {/* Visual: how much THIS member talangined relative to
-                      the biggest contributor in the group. Gives the
-                      ranking a glance-able shape. */}
-                  {paid > 0 && (
-                    <div className="flex items-center gap-2">
-                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--color-muted)]">
-                        <div
-                          className="h-full rounded-full bg-[var(--color-accent)]"
-                          style={{ width: `${paidPct.toFixed(1)}%` }}
-                        />
+                  return (
+                    <div key={m.id} className="space-y-3 p-4">
+                      {/* Identity row */}
+                      <div className="flex items-center gap-3">
+                        <Avatar name={m.display_name} />
+                        <p className="min-w-0 flex-1 truncate text-sm font-semibold">
+                          {isMe ? "Kamu" : m.display_name}
+                        </p>
+                        {/* Status pill — same hierarchy as before but
+                            tagged "Saldo" to make the number's meaning
+                            unambiguous. "diterima" alone could read as
+                            "income" out of context. */}
+                        {net === 0 ? (
+                          <span className="shrink-0 rounded-full bg-[var(--color-muted)] px-2.5 py-1 text-[10px] font-semibold text-[var(--color-muted-foreground)]">
+                            Lunas
+                          </span>
+                        ) : net > 0 ? (
+                          <span className="tabular shrink-0 rounded-full bg-[color-mix(in_oklab,var(--color-success),transparent_88%)] px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                            akan terima +{formatRupiah(net)}
+                          </span>
+                        ) : (
+                          <span className="tabular shrink-0 rounded-full bg-[color-mix(in_oklab,var(--color-destructive),transparent_88%)] px-2.5 py-1 text-[11px] font-semibold text-rose-700 dark:text-rose-400">
+                            harus bayar {formatRupiah(-net)}
+                          </span>
+                        )}
                       </div>
-                      <p className="tabular w-20 shrink-0 text-right text-[10px] text-[var(--color-muted-foreground)]">
-                        Konsumsi {formatRupiah(consumed)}
-                      </p>
+
+                      {/* Two-stat headline. Bagian (consumption) is the
+                          primary, larger figure — it's what each person
+                          truly "spent" on the trip. Bayar di muka is
+                          secondary but still legible. */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-muted-foreground)]">
+                            Bagian
+                          </p>
+                          <p className="font-display tabular text-2xl font-semibold leading-tight tracking-tight">
+                            {formatRupiah(consumed)}
+                          </p>
+                          <p className="mt-0.5 text-[10px] text-[var(--color-muted-foreground)]/80">
+                            yang harusnya ditanggung
+                          </p>
+                        </div>
+                        <div className="border-l border-[var(--color-border)] pl-3">
+                          <p className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-muted-foreground)]">
+                            Bayar di muka
+                          </p>
+                          <p className="tabular text-lg font-semibold leading-tight tracking-tight">
+                            {formatRupiah(paid)}
+                          </p>
+                          <p className="mt-0.5 text-[10px] text-[var(--color-muted-foreground)]/80">
+                            keluar dari kantong
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Bar = consumption relative to the biggest
+                          consumer. Now matches the headline figure. */}
+                      {consumed > 0 && (
+                        <div className="flex items-center gap-2">
+                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--color-muted)]">
+                            <div
+                              className="h-full rounded-full bg-[var(--color-accent)]"
+                              style={{
+                                width: `${consumedPct.toFixed(1)}%`,
+                              }}
+                            />
+                          </div>
+                          <p className="tabular shrink-0 text-[10px] text-[var(--color-muted-foreground)]/80">
+                            {((consumed / total) * 100).toFixed(0)}% dari trip
+                          </p>
+                        </div>
+                      )}
+                      {consumed === 0 && paid > 0 && (
+                        <p className="text-[11px] text-[var(--color-muted-foreground)]">
+                          Cuma talangin{" "}
+                          <span className="tabular font-semibold text-[var(--color-foreground)]">
+                            {formatRupiah(paid)}
+                          </span>{" "}
+                          — tidak ikut konsumsi
+                        </p>
+                      )}
                     </div>
-                  )}
-                  {paid === 0 && consumed > 0 && (
-                    <p className="text-[11px] text-[var(--color-muted-foreground)]">
-                      Cuma konsumsi{" "}
-                      <span className="tabular font-semibold text-[var(--color-foreground)]">
-                        {formatRupiah(consumed)}
-                      </span>{" "}
-                      — belum pernah talangin
-                    </p>
-                  )}
-                </div>
-              );
-            })}
-          </Card>
-          <p className="mt-2 px-1 text-[10px] leading-relaxed text-[var(--color-muted-foreground)]/80">
-            <b>Talangin</b> = uang yang dikeluarkan dari kantong saat bayar.{" "}
-            <b>Konsumsi</b> = porsi pengeluaran sesuai pembagian. <b>Selisih</b>{" "}
-            = talangin − konsumsi (positif = uang akan kembali, negatif = masih
-            harus bayar).
-          </p>
+                  );
+                })}
+              </Card>
+            );
+          })()}
+
         </section>
 
-        {/* Category breakdown with progress bars */}
+        {/*
+          Category breakdown — collapsible. Defaults closed so the
+          critical sections below ("Sisa utang", "Riwayat pelunasan")
+          stay above the fold even on long trips with 10+ categories.
+          The summary header still shows total category count and
+          biggest spend so users can decide whether to expand.
+        */}
         {categoryRows.length > 0 && (
-          <section>
-            <h3 className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-muted-foreground)]">
-              Breakdown kategori
-            </h3>
-            <Card className="space-y-3 p-4">
+          <details className="group">
+            <summary className="list-none cursor-pointer">
+              <Card className="flex items-center gap-3 p-3.5 transition-all duration-200 hover:bg-[var(--color-muted)]">
+                <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[var(--color-muted)] text-base">
+                  📊
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold tracking-tight">Breakdown kategori</p>
+                  <p className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
+                    {categoryRows.length} kategori · terbesar{" "}
+                    {categoryRows[0]?.label.toLowerCase()}
+                  </p>
+                </div>
+                <ChevronRight className="size-4 text-[var(--color-muted-foreground)] transition-transform group-open:rotate-90" />
+              </Card>
+            </summary>
+            <Card className="mt-1.5 space-y-3 p-4">
               {categoryRows.map((row) => (
                 <div key={row.slug || "uncategorized"} className="space-y-1.5">
                   <div className="flex items-center gap-2">
@@ -314,7 +342,7 @@ export default async function GroupReportPage({
                 </div>
               ))}
             </Card>
-          </section>
+          </details>
         )}
 
         {/* Outstanding (after confirmed settlements) */}

@@ -3,11 +3,18 @@
  * expense chart. No DB/network — given raw expense rows + members, this
  * produces ready-to-render Recharts data.
  *
- * Cumulative semantics: each bucket contains the running total for that
- * member up to and including that bucket's window. So the chart line
- * always goes flat or up — never resets. That's the "crypto chart" feel
- * the user asked for.
+ * Per-bucket semantics: each point shows the spend WITHIN that bucket
+ * window only (per-expense, not cumulative). Empty buckets are 0, busy
+ * buckets spike. This produces the "gunung" mountain shape the user
+ * wanted — line rises at active hours/days and drops back to zero in
+ * between, instead of monotonically climbing.
+ *
+ * Earlier this returned cumulative running totals which gave a "crypto
+ * chart" look, but that obscured the per-event signal — you couldn't
+ * see *when* the actual spending happened, only how the running total
+ * grew.
  */
+
 
 export type TimelineRange = "1D" | "1W" | "1M";
 
@@ -39,11 +46,12 @@ export interface TimelinePoint {
   t: number;
   /** Pre-formatted label for tooltips/x-axis ("17:00", "Sen 12 Mei", etc.) */
   label: string;
-  /** Cumulative TOTAL group spend up to this bucket */
+  /** Total group spend WITHIN this bucket window (not cumulative) */
   total: number;
-  /** Cumulative SHARE per member up to this bucket. Key = member id. */
+  /** Per-member share spent within this bucket. Key = member id. */
   [memberId: string]: number | string;
 }
+
 
 export interface TimelineConfig {
   range: TimelineRange;
@@ -156,36 +164,36 @@ export function buildExpenseTimeline(
     }
   }
 
-  // Walk buckets, accumulating running totals.
-  const cumulative = new Map<string, number>();
-  for (const m of members) cumulative.set(m.id, 0);
-
+  // Walk buckets, emitting per-bucket spend (no accumulation). Each
+  // point reflects ONLY what happened in its window — that's what
+  // produces the up-and-down mountain shape.
   return buckets.map((t) => {
     const slot = perBucket.get(t)!;
     let total = 0;
-    for (const m of members) {
-      const inc = slot.get(m.id) ?? 0;
-      const next = (cumulative.get(m.id) ?? 0) + inc;
-      cumulative.set(m.id, next);
-      total += next;
-    }
-
     const point: TimelinePoint = {
       t,
       label: shape.format(new Date(t)),
-      total,
+      total: 0,
     };
     for (const m of members) {
-      point[m.id] = cumulative.get(m.id) ?? 0;
+      const v = slot.get(m.id) ?? 0;
+      point[m.id] = v;
+      total += v;
     }
+    point.total = total;
     return point;
   });
 }
 
 /**
- * Total spend across the whole range — quick stat to display next to the
- * chart so it has a single anchor number.
+ * Total spend across the whole range — sum of every bucket's `total`.
+ * (Was previously the last cumulative point; updated to match the new
+ * per-bucket semantics.)
  */
 export function totalInRange(points: TimelinePoint[]): number {
-  return points.length === 0 ? 0 : Number(points[points.length - 1].total ?? 0);
+  let s = 0;
+  for (const p of points) s += Number(p.total ?? 0);
+  return s;
 }
+
+

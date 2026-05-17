@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { inferCategory } from "@/lib/categories";
 
 /**
  * Server-only data layer. All functions assume RLS is in place — they will
@@ -214,17 +215,42 @@ export async function getGroupDetail(groupId: string): Promise<GroupDetail | nul
     }, new Map<string, { member_id: string; amount: number }[]>());
   }
 
+  // -----------------------------------------------------------------
+  // Backfill missing categories at read time.
+  //
+  // Rows recorded before auto-categorize landed have `category = null`,
+  // so they pile up in "Tanpa kategori" even though their title clearly
+  // says "Bensin" or "Nasi padang". Instead of writing a migration to
+  // fill the DB, we infer on the fly: cheap pure function, runs once
+  // per page load, and keeps the column source-of-truth honest if the
+  // user ever wants to override per-row by editing.
+  //
+  // Two-pass so layer-2 (match against existing categories in the
+  // group) sees a complete picture before classifying nulls.
+  // -----------------------------------------------------------------
+  const knownCats = new Set<string>();
+  for (const e of expenses) {
+    const c = (e as { category?: string | null }).category;
+    if (c) knownCats.add(c);
+  }
+
   return {
     ...groupRes.data,
     members: membersRes.data ?? [],
-    expenses: expenses.map((e) => ({
-      ...e,
-      amount: Number(e.amount),
-      // `category` is selected above but the row type may still come
-      // through without it on stale generated types — coalesce to null.
-      category: ("category" in e ? (e as { category: string | null }).category : null) ?? null,
-      splits: splitsByExpense.get(e.id) ?? [],
-    })),
+    expenses: expenses.map((e) => {
+      const stored = (e as { category?: string | null }).category ?? null;
+      const category = stored ?? inferCategory(e.title, Array.from(knownCats));
+      // Add inferred category to the known set so the next null row
+      // matches against it via layer-2 (e.g. second "Kopi pagi" picks
+      // up the slug from the first one even if neither is preset).
+      if (!stored && category) knownCats.add(category);
+      return {
+        ...e,
+        amount: Number(e.amount),
+        category,
+        splits: splitsByExpense.get(e.id) ?? [],
+      };
+    }),
     settlements: (settlementsRes.data ?? []).map((s) => ({
       ...s,
       amount: Number(s.amount),

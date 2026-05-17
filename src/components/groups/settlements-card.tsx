@@ -33,6 +33,8 @@ interface SettlementRow {
 interface SettlementsCardProps {
   groupId: string;
   myMemberId: string | null;
+  /** True when the current user is the group owner — owner can proxy for guests. */
+  isOwner: boolean;
   members: MemberLite[];
   /** Open suggestions from balance solver (after applying confirmed settlements) */
   suggestions: SuggestedRow[];
@@ -43,6 +45,11 @@ interface SettlementsCardProps {
   markPaidAction: (formData: FormData) => Promise<void>;
   confirmAction: (formData: FormData) => Promise<void>;
   unmarkPaidAction: (formData: FormData) => Promise<void>;
+}
+
+/** A member without an account (i.e. guest) — checked via profile_id. */
+function isGuest(m: MemberLite | undefined): boolean {
+  return !!m && m.profile_id === null;
 }
 
 /**
@@ -59,6 +66,7 @@ interface SettlementsCardProps {
 export function SettlementsCard({
   groupId,
   myMemberId,
+  isOwner,
   members,
   suggestions,
   pending,
@@ -86,8 +94,12 @@ export function SettlementsCard({
           </h3>
           <Card className="divide-y divide-[var(--color-border)]">
             {suggestions.map((s, i) => {
+              const debtor = memberMap.get(s.fromMemberId);
+              const creditor = memberMap.get(s.toMemberId);
               const isDebtor = myMemberId === s.fromMemberId;
               const isCreditor = myMemberId === s.toMemberId;
+              // Owner can mark-paid on behalf of a guest debtor
+              const canActAsOwner = isOwner && isGuest(debtor);
               return (
                 <div
                   key={`${s.fromMemberId}-${s.toMemberId}-${i}`}
@@ -124,7 +136,18 @@ export function SettlementsCard({
                       toName={name(s.toMemberId)}
                     />
                   )}
-                  {isCreditor && (
+                  {!isDebtor && canActAsOwner && (
+                    <MarkPaidForm
+                      action={markPaidAction}
+                      groupId={groupId}
+                      fromId={s.fromMemberId}
+                      toId={s.toMemberId}
+                      amount={s.amount}
+                      toName={name(s.toMemberId)}
+                      proxyLabel={`Tandai ${debtor?.display_name} sudah bayar`}
+                    />
+                  )}
+                  {isCreditor && !canActAsOwner && (
                     <p className="text-[11px] text-[var(--color-muted-foreground)]">
                       Tunggu {name(s.fromMemberId)} menandai sudah bayar.
                     </p>
@@ -144,8 +167,14 @@ export function SettlementsCard({
           </h3>
           <Card className="divide-y divide-[var(--color-border)]">
             {pending.map((s) => {
+              const debtor = memberMap.get(s.from_member_id);
+              const creditor = memberMap.get(s.to_member_id);
               const isCreditor = myMemberId === s.to_member_id;
               const isDebtor = myMemberId === s.from_member_id;
+              // Owner can confirm on behalf of a guest creditor, or
+              // withdraw on behalf of a guest debtor.
+              const ownerCanConfirm = isOwner && isGuest(creditor) && !isCreditor;
+              const ownerCanWithdraw = isOwner && isGuest(debtor) && !isDebtor;
               return (
                 <div key={s.id} className="flex flex-col gap-2 p-4">
                   <div className="flex items-center gap-3">
@@ -177,7 +206,7 @@ export function SettlementsCard({
                     </span>
                   </div>
                   <div className="flex gap-2">
-                    {isCreditor && (
+                    {(isCreditor || ownerCanConfirm) && (
                       <ServerActionButton
                         action={confirmAction}
                         formFields={{
@@ -189,12 +218,15 @@ export function SettlementsCard({
                         className="flex-1 gap-1.5"
                         label={
                           <>
-                            <Check className="size-4" /> Konfirmasi
+                            <Check className="size-4" />
+                            {ownerCanConfirm
+                              ? `Konfirmasi utk ${creditor?.display_name}`
+                              : "Konfirmasi"}
                           </>
                         }
                       />
                     )}
-                    {isDebtor && (
+                    {(isDebtor || ownerCanWithdraw) && (
                       <ConfirmWithdraw
                         action={unmarkPaidAction}
                         settlementId={s.id}
@@ -202,7 +234,7 @@ export function SettlementsCard({
                         toName={name(s.to_member_id)}
                       />
                     )}
-                    {!isCreditor && !isDebtor && (
+                    {!isCreditor && !isDebtor && !ownerCanConfirm && !ownerCanWithdraw && (
                       <p className="text-[11px] text-[var(--color-muted-foreground)]">
                         Menunggu {name(s.to_member_id)} mengonfirmasi.
                       </p>
@@ -264,6 +296,7 @@ function MarkPaidForm({
   toId,
   amount,
   toName,
+  proxyLabel,
 }: {
   action: (fd: FormData) => Promise<void>;
   groupId: string;
@@ -271,6 +304,8 @@ function MarkPaidForm({
   toId: string;
   amount: number;
   toName: string;
+  /** When set, the form is submitted by an owner on a guest's behalf. */
+  proxyLabel?: string;
 }) {
   const [pending, start] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
@@ -278,7 +313,7 @@ function MarkPaidForm({
   return (
     <details>
       <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full bg-[var(--color-accent)] px-3 py-1.5 text-xs font-semibold text-[var(--color-accent-foreground)] shadow-[var(--shadow-pop-accent)] active:scale-95">
-        <Check className="size-3.5" /> Sudah bayar
+        <Check className="size-3.5" /> {proxyLabel ?? "Sudah bayar"}
       </summary>
       <form
         ref={formRef}

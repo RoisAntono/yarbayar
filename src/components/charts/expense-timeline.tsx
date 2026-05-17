@@ -132,7 +132,14 @@ export function ExpenseTimeline({
                 />
                 <Tooltip content={<ChartTooltip members={members} hidden={hidden} variant={variant} />} />
                 <Area
-                  type="stepAfter"
+                  /*
+                    monotone gives the cumulative line a smooth "mountain"
+                    shape between buckets — never overshoots the data
+                    points (so no fake dips), but still curves softly
+                    instead of stepping vertically. That matches the
+                    user's mental model of "gradually building up".
+                  */
+                  type="monotone"
                   dataKey="total"
                   stroke="var(--color-accent)"
                   strokeWidth={2.5}
@@ -168,13 +175,11 @@ export function ExpenseTimeline({
                   <Line
                     key={m.id}
                     /*
-                      stepAfter: cumulative spend stays flat until the
-                      next bucket, then jumps. That's the truthful shape
-                      for "spent at hour X" data — `monotone` (smooth
-                      curve) made it look like spending grew linearly
-                      across hours, which it didn't.
+                      monotone — smooth cumulative curve between
+                      buckets, "mountain" shape. Avoids the harsh
+                      vertical jumps that stepAfter produced.
                     */
-                    type="stepAfter"
+                    type="monotone"
                     dataKey={m.id}
                     name={m.display_name}
                     /*
