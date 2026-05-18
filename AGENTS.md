@@ -288,6 +288,52 @@ Pattern yang harus dipertahankan untuk form yang baru dibuat:
 - Group expense rows di `getUnifiedExpenses` selalu `kind: "expense"`
   (group flow itu shared expense, bukan personal income).
 
+## Currency convention
+
+- ✅ **`profiles.currency`** menyimpan ISO 4217 code (default `IDR`).
+  Picker di `/profile/currency` — 9 currency curated (IDR, USD, SGD,
+  MYR, THB, JPY, EUR, GBP, AUD). Helper di `src/lib/currency.ts`:
+  `getCurrencyConfig(code)` defensive default ke IDR,
+  `isSupportedCurrency(code)` untuk validate enum di server action.
+- ✅ **Format-only, BUKAN conversion.** Setting cuma ubah how angka
+  di-render di UI. Nilai stored tidak pernah di-convert otomatis.
+  Disclaimer eksplisit di picker page.
+- ✅ **`formatMoney(value, code)`** generic + memoized
+  `Intl.NumberFormat` cache di `src/lib/utils.ts`. `formatRupiah` /
+  `formatRupiahShort` kept sebagai backwards-compat alias yang call
+  `formatMoney(v, "IDR")`. Group expense displays tetap pakai
+  `formatRupiah` karena `groups.currency` independen (default IDR,
+  belum exposed ke UI).
+- ✅ **User-scope vs group-scope dipisah.** Cashflow card Beranda,
+  /personal, /history, /profile/trash → render dengan
+  `profile.currency`. Hero saldo Beranda + group rows → tetap
+  `formatRupiah` (aggregate dari group nets).
+- ✅ **Group-level currency override.** Schema `groups.currency`
+  exposed ke UI via owner-only picker di
+  `/groups/[id]/settings/currency-picker.tsx`. Mata uang grup
+  independen dari user-level `profiles.currency` — relevan untuk trip
+  internasional (mis. user IDR-default tapi grup "Bali Trip" → IDR,
+  grup "Tokyo 2027" → JPY). Display surfaces yang sudah pakai
+  `formatMoney(amount, group.currency)`: `/groups` list cards,
+  `/groups/[id]` hero + members strip + settlements suggestions/pending,
+  `/groups/[id]/expenses/[expenseId]` detail + delete confirm,
+  ExpenseGroupings bucket totals + row amounts. Server action
+  `updateGroupCurrencyAction` defense-in-depth: cek `isSupportedCurrency`
+  + owner ownership before write. Picker disclaimer "format-only,
+  bukan conversion" sama dengan user-level picker — wajib supaya user
+  tidak kaget angka tetap sama setelah switch currency.
+- ✅ **Group currency end-to-end coverage.** `/groups/[id]/report`
+  page (8 callsite — total trip, status pill akan terima/harus bayar,
+  bagian/bayar di muka headline, breakdown kategori, sisa utang,
+  riwayat pelunasan) pakai local `fmt = (n) => formatMoney(n, group.currency)`
+  helper untuk callsite ringkas. `expense-form.tsx` (4 callsite —
+  scan toast, sisa/lebih hint, per-member split estimate) ditangani
+  via `currency` prop wajib + local `fmt` helper, di-thread dari
+  `/groups/[id]/expenses/new` dan `/groups/[id]/expenses/[expenseId]/edit`
+  parent. Tidak ada lagi `formatRupiah` di group surface — semua
+  amount yang display dengan context grup pasti pakai `group.currency`.
+
+
 ## Default-action vs confirmation
 
 - ✅ Tap row personal → langsung `/personal/[id]/edit` (low-stakes).
@@ -328,11 +374,18 @@ aspirational. Bukan urutan eksekusi — pilih berdasarkan dampak.
 
 - ✅ **`loading.tsx` di semua route utama dan sekunder** — Beranda,
   Groups, Group detail, Personal, History, plus `/groups/[id]/report`,
-  `/groups/[id]/expenses/[expenseId]`, `/groups/[id]/settings`. Setiap
-  skeleton match dimensi card asli supaya CLS ≈ 0.
-- 🎯 **Streaming Suspense boundaries.** Hero card di Beranda tidak
-  perlu nunggu `getMyGroupsWithSummary()` selesai — pisah fetch jadi
-  parallel Suspense supaya saldo langsung muncul.
+  `/groups/[id]/expenses/[expenseId]`, `/groups/[id]/settings`,
+  `/profile/trash`, `/profile/currency`. Setiap skeleton match dimensi
+  card asli supaya CLS ≈ 0.
+- ✅ **Streaming Suspense di Beranda, /personal, /history.** Tiga
+  route utama dipecah jadi 3-4 Suspense boundary masing-masing.
+  Pattern: shell + static section render sync (greeting, quick
+  actions, header), data-driven section streamed (hero card,
+  cashflow card, list rows). Pakai `React.cache()` untuk dedup
+  fetcher yang dipanggil multiple boundary (mis. `getProfile` di
+  header subtitle DAN cashflow render). Skeleton match dimensi
+  card asli (CLS ≈ 0).
+
 
 ## Soft-delete migration
 
@@ -347,32 +400,49 @@ aspirational. Bukan urutan eksekusi — pilih berdasarkan dampak.
   dengan delete elsewhere.
 - 🎯 **`expenses.archived_at`** untuk group expense — perlu refactor
   cascade ke `expense_splits` + balance recompute. Lebih kompleks.
-- 🎯 **Cron purge job** (auto-delete archived rows >30 hari).
-  Currently copy "auto-purge 30 hari" di trash page itu intent saja,
-  belum enforced. Bisa pakai Supabase Edge Function scheduled atau
-  Vercel Cron Job.
+- ✅ **Cron purge job** (auto-delete archived rows >30 hari).
+  Migration `0010_purge_archived_personal.sql` define SQL function
+  `purge_archived_personal_expenses()` (SECURITY DEFINER, granted
+  ke service_role only). API route `/api/cron/purge-archived`
+  guarded by `Authorization: Bearer ${CRON_SECRET}`, pakai
+  service-role admin client (`src/lib/supabase/admin.ts`).
+  Vercel Cron schedule daily 02:00 UTC di `vercel.json`. Idempotent
+  — re-run kasih deleted_count = 0 tanpa error.
+
 
 ## Performance gap
 
 - ✅ **Receipt scanner lazy load.** `receipt-scanner-loader.tsx`
   pakai `next/dynamic` ssr:false → ~1.5MB OCR pipeline tidak masuk
   main bundle.
-- 🎯 **Streaming Suspense untuk hero card Beranda.** Pisah
-  `getMyGroupsWithSummary()` jadi async boundary terpisah dari hero
-  saldo, biar saldo bisa visible duluan.
+- ✅ **Streaming Suspense untuk Beranda.** Done — lihat "Loading
+  state gap" di atas. FCP turun signifikan karena shell + Quick
+  Actions render tanpa nunggu Supabase fetch.
 - 🎯 **Lazy load PDF/XLSX libraries** _kalau nanti dipakai_. Saat ini
   belum ada `pdf-lib` / `exceljs` di project — laporan trip masih
   HTML print. Kalau nanti generate PDF native, wajib `next/dynamic`
   pattern.
 
+
 ## Feature backlog (Gen-Z friendly)
 
 Bukan to-do urgent, tapi reminder kalau user request datang:
 
+- ✅ **Goal pemasukan** ("nabung Rp 500rb bulan ini" → progress bar di
+  /personal). _Implemented._ Schema: `profiles.monthly_savings_target`
+  numeric nullable + CHECK >= 0 (migration `0011`). Server action
+  `updateSavingsTargetAction` di `profile/actions.ts` accept amount
+  string (parseRupiahInput), 0/empty → null reset. Picker page
+  `/profile/goal` mirror pattern `/profile/currency` — disclaimer
+  card + form dengan live preview formatMoney. `GoalCard` di
+  `/personal` punya 4 state empatik: NULL → empty CTA, reached →
+  milestone success, on-track → progress bar + "tinggal X lagi",
+  defisit → gentle reframe "mungkin set target lebih kecil?".
+  Suspense boundary terpisah dari HeroCashflow supaya goal data
+  tidak block hero render. Reset bulanan implicit — net dihitung dari
+  `getMonthlySummary` yang filter ke bulan berjalan.
 - Splitbill iuran rutin (kos, langganan) — trigger expense otomatis
   tiap bulan tanggal yang sama.
-- Goal pemasukan ("nabung Rp 500rb bulan ini" → progress bar di
-  /personal hero).
 - Request settlement via WA deeplink (otomatis pre-fill pesan).
 - QRIS payment screenshot recognition (selain nota receipt).
 

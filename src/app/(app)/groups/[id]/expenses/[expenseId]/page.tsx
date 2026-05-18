@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/page-header";
 import { getCurrentUser, getGroupDetail } from "@/lib/data";
 import { editMinutesLeft, isWithinEditWindow } from "@/lib/edit-window";
-import { formatRupiah } from "@/lib/utils";
+import { formatMoney } from "@/lib/utils";
 import { deleteExpenseAction } from "../actions";
 import { ReceiptImage } from "./receipt-image";
 import { DeleteExpenseButton } from "./delete-button";
@@ -45,7 +45,7 @@ export default async function ExpenseDetailPage({
               Total
             </p>
             <p className="mt-2 font-display tabular text-5xl leading-none">
-              {formatRupiah(expense.amount)}
+              {formatMoney(expense.amount, group.currency)}
             </p>
             <div className="mt-4 flex items-center justify-center gap-4 text-xs opacity-80">
               <span className="inline-flex items-center gap-1.5">
@@ -93,7 +93,7 @@ export default async function ExpenseDetailPage({
                     {m.id === myMember?.id ? "Kamu" : m.display_name}
                   </p>
                   <p className="tabular text-sm font-semibold">
-                    {formatRupiah(s.amount)}
+                    {formatMoney(s.amount, group.currency)}
                   </p>
                 </div>
               );
@@ -126,6 +126,8 @@ export default async function ExpenseDetailPage({
               expenseId={expense.id}
               groupId={group.id}
               expenseTitle={expense.title}
+              amount={expense.amount}
+              currency={group.currency}
             />
           </div>
         )}

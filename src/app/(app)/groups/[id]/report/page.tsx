@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { computeBalances, settle } from "@/lib/balances";
 import { categoryEmoji, categoryLabel } from "@/lib/categories";
 import { getCurrentUser, getGroupDetail } from "@/lib/data";
-import { formatRupiah } from "@/lib/utils";
+import { formatMoney } from "@/lib/utils";
 
 export const metadata = { title: "Laporan trip" };
 export const dynamic = "force-dynamic";
@@ -24,6 +24,11 @@ export default async function GroupReportPage({
 
   const memberMap = new Map(group.members.map((m) => [m.id, m]));
   const myMember = group.members.find((m) => m.profile_id === user?.id);
+
+  // Local shorthand — semua amount di laporan ini render dengan
+  // currency grup. Bikin helper di scope page level supaya callsite
+  // tetap pendek tanpa pass currency tiap kali.
+  const fmt = (n: number) => formatMoney(n, group.currency);
 
   const total = group.expenses.reduce((s, e) => s + e.amount, 0);
 
@@ -120,7 +125,7 @@ export default async function GroupReportPage({
               Total trip
             </div>
             <p className="mt-2 font-display tabular text-5xl leading-none">
-              {formatRupiah(total)}
+              {fmt(total)}
             </p>
             <div className="mt-4 grid grid-cols-2 gap-2.5 text-xs">
               <div className="rounded-2xl bg-white/10 px-3 py-2.5 backdrop-blur-md">
@@ -216,11 +221,11 @@ export default async function GroupReportPage({
                           </span>
                         ) : net > 0 ? (
                           <span className="tabular shrink-0 rounded-full bg-[color-mix(in_oklab,var(--color-success),transparent_88%)] px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
-                            akan terima +{formatRupiah(net)}
+                            akan terima +{fmt(net)}
                           </span>
                         ) : (
                           <span className="tabular shrink-0 rounded-full bg-[color-mix(in_oklab,var(--color-destructive),transparent_88%)] px-2.5 py-1 text-[11px] font-semibold text-rose-700 dark:text-rose-400">
-                            harus bayar {formatRupiah(-net)}
+                            harus bayar {fmt(-net)}
                           </span>
                         )}
                       </div>
@@ -235,7 +240,7 @@ export default async function GroupReportPage({
                             Bagian
                           </p>
                           <p className="font-display tabular text-2xl font-semibold leading-tight tracking-tight">
-                            {formatRupiah(consumed)}
+                            {fmt(consumed)}
                           </p>
                           <p className="mt-0.5 text-[10px] text-[var(--color-muted-foreground)]/80">
                             yang harusnya ditanggung
@@ -246,7 +251,7 @@ export default async function GroupReportPage({
                             Bayar di muka
                           </p>
                           <p className="tabular text-lg font-semibold leading-tight tracking-tight">
-                            {formatRupiah(paid)}
+                            {fmt(paid)}
                           </p>
                           <p className="mt-0.5 text-[10px] text-[var(--color-muted-foreground)]/80">
                             keluar dari kantong
@@ -275,7 +280,7 @@ export default async function GroupReportPage({
                         <p className="text-[11px] text-[var(--color-muted-foreground)]">
                           Cuma talangin{" "}
                           <span className="tabular font-semibold text-[var(--color-foreground)]">
-                            {formatRupiah(paid)}
+                            {fmt(paid)}
                           </span>{" "}
                           — tidak ikut konsumsi
                         </p>
@@ -322,7 +327,7 @@ export default async function GroupReportPage({
                     </span>
                     <p className="flex-1 text-sm font-medium">{row.label}</p>
                     <p className="tabular text-sm font-semibold">
-                      {formatRupiah(row.total)}
+                      {fmt(row.total)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -374,7 +379,7 @@ export default async function GroupReportPage({
                       </span>
                     </p>
                     <span className="tabular text-sm font-semibold">
-                      {formatRupiah(s.amount)}
+                      {fmt(s.amount)}
                     </span>
                   </div>
                 );
@@ -414,7 +419,7 @@ export default async function GroupReportPage({
                         </span>
                       </p>
                       <span className="tabular text-sm font-semibold">
-                        {formatRupiah(s.amount)}
+                        {fmt(s.amount)}
                       </span>
                     </div>
                   );

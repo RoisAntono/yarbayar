@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight, Clock, Coins, LogOut, Mail, Trash2 } from "lucide-react";
+import { ChevronRight, Clock, Coins, LogOut, Mail, Target, Trash2 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import {
   getCurrentUser,
   getProfile,
 } from "@/lib/data";
+import { formatMoney } from "@/lib/utils";
 
 export const metadata = { title: "Profil" };
 export const dynamic = "force-dynamic";
@@ -75,6 +76,22 @@ export default async function ProfilePage() {
             hint={(() => {
               const c = getCurrencyConfig(profile?.currency);
               return `${c.label} · ${c.symbol}`;
+            })()}
+          />
+          {/* Target nabung — entry row dengan hint berbeda tergantung
+              status. Sudah set: tampil nominal. Belum set: copy CTA
+              "Belum di-set" yang prompt user untuk klik. */}
+          <SettingsLinkRow
+            href="/profile/goal"
+            icon={<Target className="size-4" />}
+            label="Target nabung"
+            hint={(() => {
+              const target = profile?.monthly_savings_target;
+              if (target && target > 0) {
+                const c = getCurrencyConfig(profile?.currency).code;
+                return `${formatMoney(target, c)} per bulan`;
+              }
+              return "Belum di-set";
             })()}
           />
           <SettingsLinkRow

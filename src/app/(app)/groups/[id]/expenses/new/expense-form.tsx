@@ -19,7 +19,7 @@ import {
 } from "@/hooks/use-form-draft";
 import { computeSplits } from "@/lib/balances";
 import { createClient } from "@/lib/supabase/client";
-import { cn, formatRupiah, parseRupiahInput } from "@/lib/utils";
+import { cn, formatMoney, parseRupiahInput } from "@/lib/utils";
 import type { SplitMethod } from "@/types/database";
 import {
   createExpenseAction,
@@ -66,6 +66,9 @@ interface ExpenseFormProps {
   groupId: string;
   members: Member[];
   defaultPaidBy: string;
+  /** Currency code dari `groups.currency` — dipakai untuk format
+   *  preview (toast scan, sisa/lebih hint, per-member split). */
+  currency: string;
   /**
    * If provided, the form switches to edit mode: prefills fields and
    * submits to editExpenseAction instead of createExpenseAction.
@@ -103,9 +106,18 @@ function recoverValuesForEdit(initial: ExpenseInitial, members: Member[]) {
 export function ExpenseForm({
   groupId,
   members,
-  defaultPaidBy,
+  // defaultPaidBy intentionally unused — last-payer pref dari
+  // localStorage menang. defaultPaidBy hanya dipakai sebagai
+  // signal bahwa parent menyediakan fallback (kalau perlu di future).
+  defaultPaidBy: _defaultPaidBy,
+  currency,
   initial,
 }: ExpenseFormProps) {
+  // Local format helper — render semua amount preview dengan currency
+  // grup. Match dengan group hero, expense detail, settlements. Bukan
+  // profile.currency user (group bisa override per-trip).
+  const fmt = (n: number) => formatMoney(n, currency);
+
   const isEdit = !!initial;
   const action = isEdit ? editExpenseAction : createExpenseAction;
   const [state, formAction, pending] = useActionState<ExpenseFormState, FormData>(
@@ -190,7 +202,7 @@ export function ExpenseForm({
   ) {
     if (result.amount) {
       setAmountStr(String(result.amount));
-      toast.success(`Total terdeteksi: ${formatRupiah(result.amount)}`);
+      toast.success(`Total terdeteksi: ${fmt(result.amount)}`);
     } else {
       toast.message("Total tidak terdeteksi", {
         description: "Foto disimpan, isi nominal manual ya.",
@@ -366,8 +378,8 @@ export function ExpenseForm({
                 : remainder === 0
                   ? "Pas ✓"
                   : remainder > 0
-                    ? `Sisa ${formatRupiah(remainder)}`
-                    : `Lebih ${formatRupiah(-remainder)}`}
+                    ? `Sisa ${fmt(remainder)}`
+                    : `Lebih ${fmt(-remainder)}`}
             </span>
           )}
         </div>
@@ -406,7 +418,7 @@ export function ExpenseForm({
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{m.display_name}</p>
                 <p className="tabular text-xs text-[var(--color-muted-foreground)]">
-                  {formatRupiah(split)}
+                  {fmt(split)}
                 </p>
               </div>
               {method === "equal" && (

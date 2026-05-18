@@ -29,6 +29,7 @@ export default async function NewExpensePage({
           groupId={group.id}
           members={group.members}
           defaultPaidBy={myMember?.id ?? group.members[0]?.id ?? ""}
+          currency={group.currency}
         />
       </div>
     </>

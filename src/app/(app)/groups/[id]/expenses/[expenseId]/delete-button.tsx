@@ -4,7 +4,7 @@ import { useRef } from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { formatRupiah } from "@/lib/utils";
+import { formatMoney } from "@/lib/utils";
 
 interface DeleteExpenseButtonProps {
   /** Server action passed in from a server component. */
@@ -14,6 +14,8 @@ interface DeleteExpenseButtonProps {
   expenseTitle: string;
   /** Optional amount to show in the confirm copy */
   amount?: number;
+  /** Currency code untuk format amount di konfirmasi (default IDR). */
+  currency?: string;
 }
 
 /**
@@ -28,6 +30,7 @@ export function DeleteExpenseButton({
   groupId,
   expenseTitle,
   amount,
+  currency = "IDR",
 }: DeleteExpenseButtonProps) {
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -52,7 +55,7 @@ export function DeleteExpenseButton({
         description={
           <>
             <span className="font-semibold">{expenseTitle}</span>
-            {amount !== undefined ? ` (${formatRupiah(amount)})` : ""} akan
+            {amount !== undefined ? ` (${formatMoney(amount, currency)})` : ""} akan
             dihapus permanen dari grup. Aksi ini tidak bisa dibatalkan.
           </>
         }

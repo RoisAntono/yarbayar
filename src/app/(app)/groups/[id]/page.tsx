@@ -20,7 +20,7 @@ import { ExpenseGroupings } from "@/components/groups/expense-groupings";
 import { SettlementsCard } from "@/components/groups/settlements-card";
 import { computeBalances, settle } from "@/lib/balances";
 import { getCurrentUser, getGroupDetail } from "@/lib/data";
-import { formatRupiah } from "@/lib/utils";
+import { formatMoney } from "@/lib/utils";
 
 import {
   confirmSettlementAction,
@@ -95,7 +95,7 @@ export default async function GroupDetailPage({
               Total pengeluaran
             </div>
             <p className="mt-2 font-display tabular text-5xl leading-none">
-              <AnimatedNumber value={total} />
+              <AnimatedNumber value={total} currency={group.currency} />
             </p>
             {myMember && (
               <p className="mt-3 text-sm opacity-80">
@@ -105,14 +105,14 @@ export default async function GroupDetailPage({
                   <>
                     Kamu akan{" "}
                     <span className="font-semibold text-[var(--color-accent)]">
-                      terima {formatRupiah(myNet)}
+                      terima {formatMoney(myNet, group.currency)}
                     </span>
                   </>
                 ) : (
                   <>
                     Kamu masih{" "}
                     <span className="font-semibold">
-                      bayar {formatRupiah(-myNet)}
+                      bayar {formatMoney(-myNet, group.currency)}
                     </span>
                   </>
                 )}
@@ -189,7 +189,15 @@ export default async function GroupDetailPage({
                       }
                     >
                       {memberNet > 0 ? "+" : "−"}
-                      {formatRupiah(Math.abs(memberNet)).replace("Rp", "")}
+                      {/* Strip currency prefix supaya tile compact —
+                          context "Anggota" sudah jelas semantic-nya
+                          uang. Pakai formatMoney lalu strip non-digit
+                          prefix supaya support semua currency, bukan
+                          cuma replace("Rp") yang IDR-only. */}
+                      {formatMoney(Math.abs(memberNet), group.currency).replace(
+                        /^[^\d-]+\s*/,
+                        ""
+                      )}
                     </span>
                   ) : (
                     <span className="text-[10px] font-medium text-[var(--color-muted-foreground)]">
@@ -211,6 +219,7 @@ export default async function GroupDetailPage({
           suggestions={suggestions}
           pending={pending}
           confirmed={confirmed}
+          currency={group.currency}
           markPaidAction={markPaidAction}
           confirmAction={confirmSettlementAction}
           unmarkPaidAction={unmarkPaidAction}
@@ -256,6 +265,7 @@ export default async function GroupDetailPage({
               }))}
               members={group.members}
               myMemberId={myMember?.id ?? null}
+              currency={group.currency}
             />
           )}
         </section>

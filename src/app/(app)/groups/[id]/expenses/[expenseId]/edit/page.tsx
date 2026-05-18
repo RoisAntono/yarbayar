@@ -39,6 +39,7 @@ export default async function ExpenseEditPage({
           groupId={group.id}
           members={group.members}
           defaultPaidBy={defaultPaidBy}
+          currency={group.currency}
           initial={{
             id: expense.id,
             title: expense.title,

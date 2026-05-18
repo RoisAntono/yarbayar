@@ -58,8 +58,18 @@ npm install
 3. Buat file `.env.local` di root project (jangan commit!):
 
    ```env
+   # Public — dipakai di client + server
    NEXT_PUBLIC_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
    NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR-ANON-KEY
+
+   # Server-only — service role key untuk cron/admin tasks. Dapat
+   # dari Project Settings → API → "service_role" key. JANGAN
+   # expose di client / commit ke repo.
+   SUPABASE_SERVICE_ROLE_KEY=YOUR-SERVICE-ROLE-KEY
+
+   # Random string panjang untuk auth Vercel Cron job. Generate
+   # dengan: `openssl rand -base64 32` atau dari random.org.
+   CRON_SECRET=GENERATE-A-LONG-RANDOM-STRING
    ```
 
 ### 3. Jalankan migrasi database
@@ -69,6 +79,10 @@ Buka **SQL Editor** di dashboard Supabase. Jalankan **berurutan**:
 1. `supabase/migrations/0001_init.sql` — skema dasar, RLS, bucket Storage
 2. `supabase/migrations/0002_whoami.sql` — diagnostic helper untuk debug RLS
 3. `supabase/migrations/0003_create_group_rpc.sql` — RPC atomik untuk buat grup
+4. `supabase/migrations/0004_*.sql` ... `0010_*.sql` — fitur tambahan:
+   group invite link, personal expenses (kind: expense/income),
+   soft-delete personal_expenses, dan cron purge function. Jalankan
+   urut sesuai prefix angka.
 
 Migrasi akan membuat:
 
@@ -137,11 +151,29 @@ supabase/
 
 1. Push project ke GitHub.
 2. Di [vercel.com/new](https://vercel.com/new), import repository tersebut.
-3. Saat setup, isi environment variables:
+3. Saat setup, isi environment variables (sesuai `.env.local`):
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY` (server-only, untuk cron purge)
+   - `CRON_SECRET` (random string, untuk auth Vercel Cron)
 4. Klik **Deploy**. Selesai — domain `*.vercel.app` siap dipakai.
 5. (Opsional) Tambah custom domain dari Vercel dashboard.
+
+### Cron job: auto-purge sampah >30 hari
+
+`vercel.json` di root sudah configure schedule daily 02:00 UTC
+(09:00 WIB) untuk endpoint `/api/cron/purge-archived`. Vercel
+otomatis attach `Authorization: Bearer ${CRON_SECRET}` saat trigger.
+
+Endpoint hapus permanen `personal_expenses` yang `archived_at`
+>30 hari lalu via SQL function (security definer + service role).
+
+**Verify cron ke-trigger:** Vercel dashboard → project → Logs
+→ filter `path = /api/cron/purge-archived`. Atau trigger manual:
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" https://your-app.vercel.app/api/cron/purge-archived
+```
 
 > **Catatan:** Tesseract.js dijalankan **di browser** lewat dynamic import,
 > jadi binari OCR tidak ikut bundle Vercel. Saat user pertama kali scan

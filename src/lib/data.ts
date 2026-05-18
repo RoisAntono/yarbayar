@@ -19,7 +19,7 @@ export async function getProfile(userId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, full_name, avatar_url, currency")
+    .select("id, full_name, avatar_url, currency, monthly_savings_target")
     .eq("id", userId)
     .maybeSingle();
   if (error) throw error;
@@ -35,6 +35,8 @@ export interface GroupSummary {
   /** signed: positive = others owe me, negative = I owe */
   my_net: number;
   last_activity: string | null;
+  /** ISO 4217 code untuk render amount (default IDR). */
+  currency: string;
 }
 
 export async function getMyGroupsWithSummary(): Promise<GroupSummary[]> {
@@ -46,7 +48,7 @@ export async function getMyGroupsWithSummary(): Promise<GroupSummary[]> {
   // Pull groups visible to user (owner OR member via profile_id)
   const { data: groups, error } = await supabase
     .from("groups")
-    .select("id, name, emoji, created_at")
+    .select("id, name, emoji, currency, created_at")
     .order("created_at", { ascending: false });
   if (error) throw error;
   if (!groups || groups.length === 0) return [];
@@ -117,6 +119,7 @@ export async function getMyGroupsWithSummary(): Promise<GroupSummary[]> {
       total_spent: total,
       my_net: Math.round(myNet),
       last_activity: lastActivity,
+      currency: g.currency ?? "IDR",
     } satisfies GroupSummary;
   });
 }
@@ -127,6 +130,8 @@ export interface GroupDetail {
   emoji: string | null;
   owner_id: string;
   archived_at: string | null;
+  /** ISO 4217 code yang dipakai untuk render semua amount di grup ini. */
+  currency: string;
   members: { id: string; display_name: string; profile_id: string | null }[];
   expenses: ExpenseWithSplits[];
   settlements: SettlementRow[];
@@ -167,7 +172,7 @@ export async function getGroupDetail(groupId: string): Promise<GroupDetail | nul
   const [groupRes, membersRes, expensesRes, settlementsRes] = await Promise.all([
     supabase
       .from("groups")
-      .select("id, name, emoji, owner_id, archived_at")
+      .select("id, name, emoji, owner_id, archived_at, currency")
       .eq("id", groupId)
       .maybeSingle(),
     supabase
@@ -236,6 +241,7 @@ export async function getGroupDetail(groupId: string): Promise<GroupDetail | nul
 
   return {
     ...groupRes.data,
+    currency: groupRes.data.currency ?? "IDR",
     members: membersRes.data ?? [],
     expenses: expenses.map((e) => {
       const stored = (e as { category?: string | null }).category ?? null;

@@ -14,6 +14,7 @@ import {
 } from "../../actions";
 import { getCurrentUser, getGroupDetail } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
+import { GroupCurrencyPicker } from "./currency-picker";
 import { DeleteGroupButton, RemoveMemberButton } from "./danger-actions";
 import {
   ClaimInviteButton,
@@ -212,6 +213,21 @@ export default async function GroupSettingsPage({
               {/* Invite link → joiner becomes auth member */}
               <NewMemberInviteCard groupId={group.id} />
             </div>
+          </section>
+        )}
+
+        {/* CURRENCY — owner-only. Section di atas Danger Zone supaya
+            urutan severity-nya naik: tambah anggota → ubah currency
+            (low risk, format only) → hapus grup (destruktif). */}
+        {isOwner && (
+          <section>
+            <h3 className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-muted-foreground)]">
+              Mata uang
+            </h3>
+            <GroupCurrencyPicker
+              groupId={group.id}
+              currentCurrency={group.currency}
+            />
           </section>
         )}
 

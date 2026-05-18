@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Segmented } from "@/components/ui/segmented";
 import { categoryEmoji, categoryLabel } from "@/lib/categories";
-import { formatRupiah } from "@/lib/utils";
+import { formatMoney } from "@/lib/utils";
 
 interface ExpenseRow {
   id: string;
@@ -33,6 +33,8 @@ interface ExpenseGroupingsProps {
   expenses: ExpenseRow[];
   members: MemberLite[];
   myMemberId: string | null;
+  /** ISO 4217 code untuk format amount (default IDR). */
+  currency?: string;
 }
 
 type Mode = "category" | "date";
@@ -61,6 +63,7 @@ export function ExpenseGroupings({
   expenses,
   members,
   myMemberId,
+  currency = "IDR",
 }: ExpenseGroupingsProps) {
   const [mode, setMode] = useState<Mode>("category");
   const memberMap = useMemo(
@@ -95,6 +98,7 @@ export function ExpenseGroupings({
             groupId={groupId}
             memberMap={memberMap}
             myMemberId={myMemberId}
+            currency={currency}
           />
         ))}
       </div>
@@ -178,6 +182,7 @@ function BucketCard({
   groupId,
   memberMap,
   myMemberId,
+  currency,
 }: {
   label: string;
   sublabel: string;
@@ -187,6 +192,7 @@ function BucketCard({
   groupId: string;
   memberMap: Map<string, MemberLite>;
   myMemberId: string | null;
+  currency: string;
 }) {
   return (
     // Always collapsed by default — once you have many buckets, having
@@ -204,7 +210,7 @@ function BucketCard({
             </p>
           </div>
           <p className="tabular shrink-0 font-semibold text-sm">
-            {formatRupiah(total)}
+            {formatMoney(total, currency)}
           </p>
           <ChevronRight className="size-4 text-[var(--color-muted-foreground)] transition-transform group-open:rotate-90" />
         </Card>
@@ -233,7 +239,7 @@ function BucketCard({
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="tabular text-sm font-semibold">
-                      {formatRupiah(e.amount)}
+                      {formatMoney(e.amount, currency)}
                     </p>
                     {myMemberId && myShare > 0 && (
                       <Badge
@@ -243,8 +249,8 @@ function BucketCard({
                         className="tabular mt-1 text-[10px]"
                       >
                         {payer?.id === myMemberId
-                          ? `+${formatRupiah(e.amount - myShare)}`
-                          : `−${formatRupiah(myShare)}`}
+                          ? `+${formatMoney(e.amount - myShare, currency)}`
+                          : `−${formatMoney(myShare, currency)}`}
                       </Badge>
                     )}
                   </div>

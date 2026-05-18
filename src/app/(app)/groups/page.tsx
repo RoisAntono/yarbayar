@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getMyGroupsWithSummary } from "@/lib/data";
-import { cn, formatRupiah } from "@/lib/utils";
+import { cn, formatMoney, formatRupiah } from "@/lib/utils";
 
 export const metadata = { title: "Grup" };
 export const dynamic = "force-dynamic";
@@ -24,6 +24,11 @@ export default async function GroupsPage() {
             ? `${totalGroups} grup · total ${formatRupiah(totalSpent)}`
             : "Buat grup pertama kamu"
         }
+        // Catatan: totalSpent agregat lintas grup. Kalau ada grup
+        // dengan currency campur, kita tampilkan dalam IDR sebagai
+        // catch-all (lihat formatRupiah default). Per-group amount
+        // di list di bawah pakai g.currency masing-masing — itu
+        // signal yang lebih akurat.
         right={
           <Link href="/groups/new" aria-label="Buat grup">
             <Button size="icon" variant="secondary">
@@ -66,7 +71,9 @@ export default async function GroupsPage() {
                       <p className="truncate font-semibold tracking-tight">{g.name}</p>
                       <p className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
                         {g.member_count} anggota · Total{" "}
-                        <span className="tabular">{formatRupiah(g.total_spent)}</span>
+                        <span className="tabular">
+                          {formatMoney(g.total_spent, g.currency)}
+                        </span>
                       </p>
                     </div>
                     <div className="shrink-0 text-right">
@@ -83,8 +90,8 @@ export default async function GroupsPage() {
                         {g.my_net === 0
                           ? "Lunas"
                           : g.my_net > 0
-                            ? `+${formatRupiah(g.my_net)}`
-                            : `−${formatRupiah(-g.my_net)}`}
+                            ? `+${formatMoney(g.my_net, g.currency)}`
+                            : `−${formatMoney(-g.my_net, g.currency)}`}
                       </p>
                       {g.my_net !== 0 && (
                         <p className="mt-0.5 text-[10px] uppercase tracking-wider text-[var(--color-muted-foreground)]/70">

@@ -22,6 +22,8 @@ export type Database = {
           full_name: string | null;
           avatar_url: string | null;
           currency: string;
+          /** Target nabung bulanan dalam profile.currency. NULL = belum set goal. */
+          monthly_savings_target: number | null;
           created_at: string;
         };
         Insert: {
@@ -29,6 +31,7 @@ export type Database = {
           full_name?: string | null;
           avatar_url?: string | null;
           currency?: string;
+          monthly_savings_target?: number | null;
           created_at?: string;
         };
         Update: {
@@ -36,6 +39,7 @@ export type Database = {
           full_name?: string | null;
           avatar_url?: string | null;
           currency?: string;
+          monthly_savings_target?: number | null;
         };
         Relationships: [];
       };
@@ -45,6 +49,8 @@ export type Database = {
           name: string;
           emoji: string | null;
           owner_id: string;
+          /** ISO 4217 code, default 'IDR'. Set per-group via settings page. */
+          currency: string;
           archived_at: string | null;
           created_at: string;
         };
@@ -53,12 +59,14 @@ export type Database = {
           name: string;
           emoji?: string | null;
           owner_id: string;
+          currency?: string;
           archived_at?: string | null;
           created_at?: string;
         };
         Update: {
           name?: string;
           emoji?: string | null;
+          currency?: string;
           archived_at?: string | null;
         };
         Relationships: [];
@@ -256,7 +264,19 @@ export type Database = {
     };
 
     Views: { [_ in never]: never };
-    Functions: { [_ in never]: never };
+    Functions: {
+      /**
+       * Hard-delete personal_expenses yang archived_at >30 hari lalu.
+       * Di-call dari /api/cron/purge-archived dengan service role.
+       * Returns row count yang di-purge.
+       *
+       * Migration: 0010_purge_archived_personal.sql
+       */
+      purge_archived_personal_expenses: {
+        Args: Record<string, never>;
+        Returns: { deleted_count: number }[];
+      };
+    };
     Enums: {
       split_method: SplitMethod;
     };

@@ -7,7 +7,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { cn, formatRupiah } from "@/lib/utils";
+import { cn, formatMoney } from "@/lib/utils";
 
 /**
  * Wrapper untuk server action call yang memberikan toast feedback.
@@ -67,6 +67,8 @@ interface SettlementsCardProps {
   pending: SettlementRow[];
   /** Confirmed payment history */
   confirmed: SettlementRow[];
+  /** ISO 4217 code untuk format amount (default IDR). */
+  currency?: string;
   markPaidAction: (formData: FormData) => Promise<void>;
   confirmAction: (formData: FormData) => Promise<void>;
   unmarkPaidAction: (formData: FormData) => Promise<void>;
@@ -96,6 +98,7 @@ export function SettlementsCard({
   suggestions,
   pending,
   confirmed,
+  currency = "IDR",
   markPaidAction,
   confirmAction,
   unmarkPaidAction,
@@ -148,7 +151,7 @@ export function SettlementsCard({
                       <span className="font-semibold">{name(s.toMemberId)}</span>
                     </p>
                     <span className="tabular text-sm font-semibold">
-                      {formatRupiah(s.amount)}
+                      {formatMoney(s.amount, currency)}
                     </span>
                   </div>
                   {isDebtor && (
@@ -227,7 +230,7 @@ export function SettlementsCard({
                       )}
                     </div>
                     <span className="tabular text-sm font-semibold">
-                      {formatRupiah(s.amount)}
+                      {formatMoney(s.amount, currency)}
                     </span>
                   </div>
                   <div className="flex gap-2">
@@ -303,7 +306,7 @@ export function SettlementsCard({
                   {name(s.from_member_id)} → {name(s.to_member_id)}
                 </p>
                 <span className="tabular text-xs font-semibold">
-                  {formatRupiah(s.amount)}
+                  {formatMoney(s.amount, currency)}
                 </span>
               </div>
             ))}
